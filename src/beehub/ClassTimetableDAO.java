@@ -1,4 +1,3 @@
-// 파일명: ClassTimetableDAO.java
 package beehub;
 
 import java.sql.*;
@@ -8,7 +7,6 @@ import java.util.List;
 
 public class ClassTimetableDAO {
 
-    // 싱글톤
     private static ClassTimetableDAO instance = new ClassTimetableDAO();
     private ClassTimetableDAO() {}
     public static ClassTimetableDAO getInstance() { return instance; }
