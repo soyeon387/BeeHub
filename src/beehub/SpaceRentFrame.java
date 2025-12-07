@@ -450,6 +450,9 @@ public class SpaceRentFrame extends JFrame {
         }
         if (partners.length() > 0) partners.setLength(partners.length() - 2);
 
+        // ✅ 실제 총 인원 (본인 + 동반인)
+        int totalPeople = partnerCount + 1;
+
         // 선택된 시간 → 정수 리스트
         ArrayList<Integer> selectedHours = new ArrayList<>();
         for (JToggleButton btn : timeButtons) {
@@ -490,17 +493,19 @@ public class SpaceRentFrame extends JFrame {
         }
 
         try {
-            reservationDAO.insertReservation(spaceId, date, selectedHours, myHakbun);
+            // 🔥 여기! peopleCount 함께 넘기기
+            reservationDAO.insertReservation(spaceId, date, selectedHours, myHakbun, totalPeople);
         } catch (Exception ex) {
             ex.printStackTrace();
             showSimplePopup("오류", "예약 저장 중 오류가 발생했습니다.");
             return;
         }
 
-        showSuccessPopup(spaceLabel, dateStr, timeStr, partnerCount + 1);
+        showSuccessPopup(spaceLabel, dateStr, timeStr, totalPeople);
         selectedTimeCount = 0;
         updateTimeSlotAvailability();
     }
+
 
     private void showSuccessPopup(String space, String date, String timeRange, int totalPeople) {
         JDialog dialog = new JDialog(this, "예약 완료", true);

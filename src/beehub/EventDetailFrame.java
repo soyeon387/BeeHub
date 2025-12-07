@@ -146,7 +146,7 @@ public class EventDetailFrame extends JFrame {
         statusLabel.setBounds(50, 70, 110, 35);
         statusLabel.setOpaque(true);
         statusLabel.setBackground(
-                "신청마감".equals(computedStatus) || "종료".equals(computedStatus)
+                "신청마감".equals(computedStatus) || "신청 마감".equals(computedStatus) || "종료".equals(computedStatus)
                         ? ORANGE_CLOSED
                         : GREEN_PROGRESS
         );
@@ -187,8 +187,13 @@ public class EventDetailFrame extends JFrame {
         slotsLabel.setBounds(50, yPos, 600, 25);
         contentPanel.add(slotsLabel);
 
-        // ✅ 진행중 + 정원이 안 찼을 때만 신청 버튼
-        if ("진행중".equals(eventData.status) && eventData.currentCount < eventData.totalCount) {
+        // ✅ 진행/신청 중 + 정원이 안 찼을 때만 신청 버튼
+        String st = eventData.status != null ? eventData.status : "";
+        boolean isOpenStatus =
+                "진행중".equals(st) || "진행 중".equals(st) ||
+                "신청중".equals(st) || "신청 중".equals(st);
+
+        if (isOpenStatus && eventData.currentCount < eventData.totalCount) {
             JButton applyButton = new JButton("신청하기");
             applyButton.setFont(uiFont.deriveFont(Font.BOLD, 18f));
             applyButton.setForeground(Color.WHITE);
@@ -225,6 +230,7 @@ public class EventDetailFrame extends JFrame {
                 // target이 비어있거나 전체학과/ALL 이면 누구나 가능
                 if (!target.isEmpty()
                         && !"전체학과".equals(target)
+                        && !"전체".equals(target)
                         && !"ALL".equalsIgnoreCase(target)) {
 
                     if (!target.equals(myMajor)) {
@@ -267,7 +273,7 @@ public class EventDetailFrame extends JFrame {
         }
     }
 
-    // ✅ 상태 계산 메소드 (LocalDateTime 기준으로 비교)
+    // ✅ 상태 계산 메소드 (행사 시간이 지났으면 종료)
     private String computeEventStatus(EventData e) {
         String baseStatus = (e.status == null || e.status.isEmpty()) ? "진행중" : e.status;
 
@@ -287,6 +293,8 @@ public class EventDetailFrame extends JFrame {
         l.setBounds(50, y, 650, 25);
         p.add(l);
     }
+
+    // 이하 나머지 메서드는 그대로 -----------------------
 
     private void showSecretCodeDialog(JLabel slotsLabel, JLabel statusLabel, JButton applyButton) {
         JDialog dialog = new JDialog(this, "비밀코드 입력", true);

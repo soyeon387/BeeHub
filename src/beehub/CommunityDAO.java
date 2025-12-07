@@ -40,22 +40,26 @@ public class CommunityDAO {
         return DBUtil.getConnection();
     }
 
-    // ================================
-    // 1. 전체 게시글 조회 (최신순)
-    //    + 실제 댓글 수까지 함께 읽어오기
-    // ================================
-    public List<PostDTO> getAllPostsOrderByNewest() {
-        String sql =
-            "SELECT p.post_id, p.writer_hakbun, p.writer_nickname, " +
-            "       p.title, p.content, " +
-            "       DATE_FORMAT(p.created_at, '%Y-%m-%d') AS created_date, " +
-            "       p.like_count " +
-            "FROM COMMUNITY_POST p " +
-            "ORDER BY p.post_id DESC";
+ // 파일: CommunityDAO.java
 
+    public List<PostDTO> getAllPostsOrderByNewest() {
         List<PostDTO> list = new ArrayList<>();
 
-        try (Connection conn = getConnection();
+        String sql =
+            "SELECT p.post_id, " +
+            "       p.writer_hakbun, " +
+            "       m.nickname AS writer_nickname, " +  // ✅ 항상 members에서 닉네임 가져오기
+            "       p.title, " +
+            "       p.content, " +
+            "       DATE_FORMAT(p.created_at, '%Y-%m-%d') AS created_date, " +
+            "       p.like_count, " +
+            "       p.comment_count " +
+            "FROM community_post p " +
+            "JOIN members m ON p.writer_hakbun = m.hakbun " +  // ✅ JOIN
+            "WHERE p.is_deleted = 0 " +
+            "ORDER BY p.post_id DESC";
+
+        try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
 
@@ -63,22 +67,21 @@ public class CommunityDAO {
                 PostDTO dto = new PostDTO();
                 dto.postId         = rs.getInt("post_id");
                 dto.writerHakbun   = rs.getString("writer_hakbun");
-                dto.writerNickname = rs.getString("writer_nickname");
+                dto.writerNickname = rs.getString("writer_nickname"); // ✅ 항상 최신 닉네임
                 dto.title          = rs.getString("title");
                 dto.content        = rs.getString("content");
                 dto.createdDate    = rs.getString("created_date");
                 dto.likeCount      = rs.getInt("like_count");
-
-                // ✅ 실제 댓글 개수 DB에서 직접 세기
-                dto.commentCount   = getCommentCount(conn, dto.postId);
+                dto.commentCount   = rs.getInt("comment_count");
 
                 list.add(dto);
             }
-        } catch (Exception e) {
+        } catch (SQLException e) {
             e.printStackTrace();
         }
         return list;
     }
+
 
     // ================================
     // 1-0. 단일 게시글 조회

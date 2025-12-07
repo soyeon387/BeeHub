@@ -1,3 +1,4 @@
+// 파일명: LotteryManager.java
 package admin;
 
 import beehub.DBUtil;
@@ -9,6 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LotteryManager {
+
+    // 한 번 응모할 때 기본 차감 꿀
+    public static final int DEFAULT_COST_POINTS = 100;
+
+    // 🔹 MyPageFrame에서 부르는 2개짜리 버전
+    public static boolean applyUsingPoints(int roundId, String hakbun) {
+        return applyUsingPoints(roundId, hakbun, DEFAULT_COST_POINTS);
+    }
 
     // ===================== DTO =====================
 
@@ -23,7 +32,7 @@ public class LotteryManager {
         public String pickupPeriod;       // 수령 기간 텍스트
         public boolean isDrawn;           // 추첨 완료 여부
         public List<Applicant> applicants = new ArrayList<>();  // 응모자 목록
-        
+
         public void addApplicant(String name, String hakbun, int count) {
             Applicant a = new Applicant();
             a.name = name;
@@ -43,7 +52,7 @@ public class LotteryManager {
 
     // ===================== 유틸 =====================
 
-    // "1회차: SWU 봄맞이 이벤트" 처럼 저장돼 있다면 "SWU 봄맞이 이벤트"로 잘라내기
+    // "1회차: SWU 봄맞이 이벤트" → "SWU 봄맞이 이벤트"
     private static String stripRoundPrefix(String rawName) {
         if (rawName == null) return "";
         int idx = rawName.indexOf(":");
@@ -53,7 +62,7 @@ public class LotteryManager {
         return rawName;
     }
 
-    // "2025-04-01 ~ 2025-04-10" 이런 문자열을 2개로 분리
+    // "2025-04-01 ~ 2025-04-10" → ["2025-04-01", "2025-04-10"]
     private static String[] splitPeriod(String period) {
         if (period == null) return null;
         String[] parts = period.split("~");
@@ -137,7 +146,7 @@ public class LotteryManager {
 
     // ===================== 한 회차 응모자 조회 =====================
 
- // round_id 기준으로 응모자 목록 로딩 (members 조인 + is_win 문자열 대응)
+    // round_id 기준으로 응모자 목록 로딩 (members 조인 + is_win 문자열 대응)
     public static List<Applicant> getApplicantsByRound(int roundId) {
         List<Applicant> list = new ArrayList<>();
 
@@ -187,61 +196,127 @@ public class LotteryManager {
         return list;
     }
 
-
     // ===================== 응모 (포인트 사용) =====================
 
     /**
-     * roundId 회차에 hakbun 학생이 포인트 100 꿀을 사용해서 1회 응모.
-     * - member.point >= 100 인지 확인 후 차감
-     * - lottery_entry 에 응모 기록 insert
+     * 경품 응모 시:
+     * 1) members 에서 포인트 조회
+     * 2) 포인트 >= costPoints 인지 확인
+     * 3) 포인트 차감
+     * 4) lottery_entry 에 응모 내역 반영
+     *    - 이미 존재하면 entry_count += 1
+     *    - 없으면 새로 INSERT (entry_count = 1)
      */
-    public static boolean applyUsingPoints(int roundId, String hakbun) {
-        String sqlUpdatePoint =
-                "UPDATE member SET point = point - 100 " +
-                "WHERE hakbun = ? AND point >= 100";
+    public static boolean applyUsingPoints(int roundId, String hakbun, int costPoints) {
 
-        String sqlInsertEntry =
-                "INSERT INTO lottery_entry (round_id, hakbun, entry_count, is_win, created_at) " +
-                "VALUES (?, ?, 1, 0, NOW())";
+        String selectPointSql =
+                "SELECT point FROM members WHERE hakbun = ?";
+        String updatePointSql =
+                "UPDATE members SET point = point - ? WHERE hakbun = ?";
 
-        Connection conn = null;
-        PreparedStatement psPoint = null;
-        PreparedStatement psEntry = null;
+        // round+hakbun 응모 내역 확인
+        String selectEntrySql =
+                "SELECT entry_count FROM lottery_entry WHERE round_id = ? AND hakbun = ?";
 
-        try {
-            conn = DBUtil.getConnection();
+        String insertEntrySql =
+        	    "INSERT INTO lottery_entry (round_id, hakbun, entry_count, is_win) " +
+        	    "VALUES (?, ?, 1, 0)";
+
+        String updateEntrySql =
+        	    "UPDATE lottery_entry SET entry_count = entry_count + 1 " +
+        	    "WHERE round_id = ? AND hakbun = ?";
+
+        // (선택) 응모 기간 체크용
+        String selectRoundPeriodSql =
+                "SELECT application_start, application_end FROM lottery_round WHERE round_id = ?";
+
+        try (Connection conn = DBUtil.getConnection()) {
             conn.setAutoCommit(false);
 
-            // 1) 포인트 차감
-            psPoint = conn.prepareStatement(sqlUpdatePoint);
-            psPoint.setString(1, hakbun);
-            int updated = psPoint.executeUpdate();
-            if (updated == 0) {
-                // 포인트 부족
+            // 0) (선택) 응모 기간 체크
+            try (PreparedStatement ps = conn.prepareStatement(selectRoundPeriodSql)) {
+                ps.setInt(1, roundId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        Timestamp tsStart = rs.getTimestamp("application_start");
+                        Timestamp tsEnd   = rs.getTimestamp("application_end");
+
+                        if (tsStart != null && tsEnd != null) {
+                            LocalDateTime now = LocalDateTime.now();
+                            LocalDateTime start = tsStart.toLocalDateTime();
+                            LocalDateTime end   = tsEnd.toLocalDateTime();
+
+                            if (now.isBefore(start) || now.isAfter(end)) {
+                                System.out.println("[Lottery] 응모 기간이 아님. roundId=" + roundId);
+                                conn.rollback();
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            int currentPoint;
+
+            // 1) 현재 포인트 조회
+            try (PreparedStatement pstmt = conn.prepareStatement(selectPointSql)) {
+                pstmt.setString(1, hakbun);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    if (!rs.next()) {
+                        System.out.println("[Lottery] members에서 학번을 찾지 못함: " + hakbun);
+                        conn.rollback();
+                        return false;
+                    }
+                    currentPoint = rs.getInt("point");
+                }
+            }
+
+            // 2) 포인트 부족 체크
+            if (currentPoint < costPoints) {
+                System.out.println("[Lottery] 포인트 부족: 현재 " + currentPoint + ", 필요 " + costPoints);
                 conn.rollback();
                 return false;
             }
 
-            // 2) 응모 기록 추가
-            psEntry = conn.prepareStatement(sqlInsertEntry);
-            psEntry.setInt(1, roundId);
-            psEntry.setString(2, hakbun);
-            psEntry.executeUpdate();
+            // 3) 포인트 차감
+            try (PreparedStatement pstmt = conn.prepareStatement(updatePointSql)) {
+                pstmt.setInt(1, costPoints);
+                pstmt.setString(2, hakbun);
+                pstmt.executeUpdate();
+            }
+
+            // 4) 응모 내역 INSERT or UPDATE
+            boolean exists;
+            try (PreparedStatement pstmt = conn.prepareStatement(selectEntrySql)) {
+                pstmt.setInt(1, roundId);
+                pstmt.setString(2, hakbun);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    exists = rs.next();
+                }
+            }
+
+            if (exists) {
+                // 이미 응모 내역 있으면 응모 횟수 +1
+                try (PreparedStatement pstmt = conn.prepareStatement(updateEntrySql)) {
+                    pstmt.setInt(1, roundId);
+                    pstmt.setString(2, hakbun);
+                    pstmt.executeUpdate();
+                }
+            } else {
+                // 처음 응모하는 경우
+                try (PreparedStatement pstmt = conn.prepareStatement(insertEntrySql)) {
+                    pstmt.setInt(1, roundId);
+                    pstmt.setString(2, hakbun);
+                    pstmt.executeUpdate();
+                }
+            }
 
             conn.commit();
             return true;
 
         } catch (Exception e) {
             e.printStackTrace();
-            if (conn != null) {
-                try { conn.rollback(); } catch (Exception ignore) {}
-            }
             return false;
-
-        } finally {
-            try { if (psEntry != null) psEntry.close(); } catch (Exception ignored) {}
-            try { if (psPoint != null) psPoint.close(); } catch (Exception ignored) {}
-            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
         }
     }
 
@@ -330,7 +405,7 @@ public class LotteryManager {
     // ===================== 추첨 결과 저장 =====================
 
     /**
-     * AdminLotteryFrame.runLottery() 에서 메모리 상의 round/applicants에
+     * AdminLotteryFrame.runLottery() 에서 메모리 상의 round.applicants에
      * status("당첨"/"미당첨")를 다 채운 다음,
      * 그 내용을 DB(lottery_round.is_drawn, lottery_entry.is_win)에 반영.
      */

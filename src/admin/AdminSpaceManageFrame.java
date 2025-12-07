@@ -20,11 +20,11 @@ import beehub.DBUtil;
 public class AdminSpaceManageFrame extends JFrame {
 
     private static final Color HEADER_YELLOW = new Color(255, 238, 140);
-    private static final Color BG_MAIN = new Color(255, 255, 255);
-    private static final Color BROWN = new Color(139, 90, 43);
-    private static final Color RED_CANCEL = new Color(255, 100, 100);
-    private static final Color GRAY_TEXT = new Color(150, 150, 150);
-    private static final Color POPUP_BG = new Color(255, 250, 205);
+    private static final Color BG_MAIN       = new Color(255, 255, 255);
+    private static final Color BROWN         = new Color(139, 90, 43);
+    private static final Color RED_CANCEL    = new Color(255, 100, 100);
+    private static final Color GRAY_TEXT     = new Color(150, 150, 150);
+    private static final Color POPUP_BG      = new Color(255, 250, 205);
 
     private static Font uiFont;
     static {
@@ -61,27 +61,24 @@ public class AdminSpaceManageFrame extends JFrame {
     private void loadReservationsFromDB() {
         reserveList.clear();
 
-        /*
-         * DB 구조
-         *  - space_info(space_id, building_name, room_name, min_people, max_people, ...)
-         *  - space_reservation(reservation_id, space_id, reserve_date, time_slot, hakbun, status, created_at, ...)
-         */
         String sql =
-                "SELECT r.reservation_id, " +
-                "       r.space_id, " +
-                "       s.building_name, " +
-                "       s.room_name, " +
-                "       s.max_people, " +
-                "       r.hakbun, " +
-                "       r.reserve_date, " +
-                "       r.time_slot, " +
-                "       r.status " +
-                "FROM space_reservation r " +
-                "JOIN space_info s ON r.space_id = s.space_id " +
-                "WHERE r.reserve_date >= CURDATE() " +
-                "  AND s.room_type IN ('세미나실', '실습실') " +   // 🔹 세미나실/실습실만
-                "ORDER BY r.reserve_date, r.time_slot";
-
+            "SELECT r.reservation_id, " +
+            "       r.space_id, " +
+            "       s.building_name, " +
+            "       s.room_name, " +
+            "       r.people_count, " +
+            "       r.hakbun, " +
+            "       m.name, " +                 
+            "       r.reserve_date, " +
+            "       r.time_slot, " +
+            "       r.status " +
+            "FROM space_reservation r " +
+            "JOIN space_info s ON r.space_id = s.space_id " +
+            "JOIN members m ON r.hakbun = m.hakbun " +
+            "WHERE r.reserve_date >= CURDATE() " +
+            "  AND s.room_type IN ('세미나실', '실습실') " +
+            "  AND r.status <> 'CANCELED' " +   // 사용자가 취소한 건 아예 안 가져옴
+            "ORDER BY r.reserve_date, r.time_slot";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -92,10 +89,14 @@ public class AdminSpaceManageFrame extends JFrame {
                 int spaceId       = rs.getInt("space_id");
                 String building   = rs.getString("building_name");
                 String roomName   = rs.getString("room_name");
-                int maxPeople     = rs.getInt("max_people");
+                int maxPeople     = rs.getInt("people_count");
 
-                String userId     = rs.getString("hakbun");
-                String userName   = userId; // member 테이블 안 쓰고, 일단 학번 그대로 표시
+                String userId   = rs.getString("hakbun");
+                String userName = rs.getString("name");   // ⭐ 여기! user_name이 아니라 name
+
+                if (userName == null || userName.isEmpty()) {
+                    userName = userId;
+                }
 
                 LocalDate date    = rs.getDate("reserve_date").toLocalDate();
                 String timeSlot   = rs.getString("time_slot"); // 예: "09:00~10:00"
@@ -109,7 +110,6 @@ public class AdminSpaceManageFrame extends JFrame {
                     startTime = LocalTime.parse(parts[0].trim());
                     endTime   = LocalTime.parse(parts[1].trim());
                 } catch (Exception ex) {
-                    // 혹시 포맷이 이상해도 화면은 뜨게 기본값
                     startTime = LocalTime.of(0, 0);
                     endTime   = LocalTime.of(0, 0);
                 }
@@ -117,30 +117,30 @@ public class AdminSpaceManageFrame extends JFrame {
                 String statusKor;
                 if ("RESERVED".equalsIgnoreCase(statusRaw)) {
                     statusKor = "예약중";
-                } else if ("CANCELED".equalsIgnoreCase(statusRaw)) {
-                    statusKor = "취소됨";
                 } else if ("NO_SHOW".equalsIgnoreCase(statusRaw)) {
                     statusKor = "미입실 취소";
+                } else if ("CANCELED".equalsIgnoreCase(statusRaw)) {
+                    statusKor = "취소됨";
                 } else {
                     statusKor = statusRaw;
                 }
 
                 reserveList.add(
-                        new SpaceData(
-                                reservationId,
-                                spaceId,
-                                building,
-                                roomName,
-                                userId,
-                                userName,
-                                date,
-                                startTime,
-                                endTime,
-                                timeSlot,
-                                maxPeople,
-                                statusKor,
-                                statusRaw
-                        )
+                    new SpaceData(
+                        reservationId,
+                        spaceId,
+                        building,
+                        roomName,
+                        userId,
+                        userName,
+                        date,
+                        startTime,
+                        endTime,
+                        timeSlot,
+                        maxPeople,
+                        statusKor,
+                        statusRaw
+                    )
                 );
             }
 
@@ -190,8 +190,16 @@ public class AdminSpaceManageFrame extends JFrame {
     private void refreshList() {
         listPanel.removeAll();
         int yPos = 10;
+        LocalDateTime now = LocalDateTime.now();
 
         for (SpaceData data : reserveList) {
+
+            // ✅ 이미 예약 시간이 끝난 예약은 관리자 창에서 자동으로 안 보이게
+            LocalDateTime endDateTime = LocalDateTime.of(data.date, data.endTime);
+            if (now.isAfter(endDateTime)) {
+                continue;
+            }
+
             JPanel card = createSpaceCard(data);
             card.setBounds(10, yPos, 690, 110);
             listPanel.add(card);
@@ -215,7 +223,11 @@ public class AdminSpaceManageFrame extends JFrame {
         roomLabel.setBounds(20, 15, 350, 30);
         panel.add(roomLabel);
 
-        int warn = PenaltyManager.getWarningCount(data.userId);
+        int warn = 0;
+        try {
+            warn = Math.min(2, PenaltyManager.getWarningCount(data.userId)); // 최대 2회까지만 표시
+        } catch (Exception ignore) {}
+
         String statusText = data.statusKor;
         if (warn > 0) statusText += " (경고 " + warn + "회)";
 
@@ -229,8 +241,10 @@ public class AdminSpaceManageFrame extends JFrame {
         statusLabel.setBounds(380, 20, 250, 20);
         panel.add(statusLabel);
 
-        JLabel userLabel = new JLabel("예약자: " + data.userId + " | " + data.userName +
-                " (정원 " + data.peopleCount + "명)");
+        JLabel userLabel = new JLabel(
+                "예약자: " + data.userId + " | " + data.userName +
+                " (총 " + data.peopleCount + "명)"
+        );
         userLabel.setFont(uiFont.deriveFont(14f));
         userLabel.setForeground(GRAY_TEXT);
         userLabel.setBounds(20, 50, 450, 20);
@@ -260,13 +274,16 @@ public class AdminSpaceManageFrame extends JFrame {
             cancelBtn.addActionListener(e -> {
                 LocalDateTime now = LocalDateTime.now();
                 LocalDateTime reserveStart = LocalDateTime.of(data.date, data.startTime);
-                LocalDateTime cancelAllowedTime = reserveStart.plusMinutes(10);
+
+                // ✅ 시작 + 9분 이후부터만 미입실 처리 가능
+                LocalDateTime cancelAllowedTime = reserveStart.plusMinutes(9);
 
                 if (now.isBefore(cancelAllowedTime)) {
-                    String msg = "아직 미입실 처리를 할 수 없습니다.\n" +
-                            "입장 시간 10분 후 (" +
-                            cancelAllowedTime.format(DateTimeFormatter.ofPattern("HH:mm")) +
-                            ") 부터\n취소 가능합니다.";
+                    String msg =
+                        "아직 미입실 처리를 할 수 없습니다.\n" +
+                        "입장 시간 9분 후 (" +
+                        cancelAllowedTime.format(DateTimeFormatter.ofPattern("HH:mm")) +
+                        ") 부터 취소 가능합니다.";
                     showMsgPopup("취소 불가", msg);
                     return;
                 }
@@ -286,13 +303,20 @@ public class AdminSpaceManageFrame extends JFrame {
                     data.statusKor = "미입실 취소";
                     data.statusRaw = "NO_SHOW";
 
-                    PenaltyManager.addWarning(data.userId);
-
-                    if (PenaltyManager.isBanned(data.userId)) {
-                        showMsgPopup("예약 정지", "🚫 경고 2회 누적!\n해당 회원은 7일간 예약이 정지되었습니다.");
-                    } else {
+                    try {
+                        PenaltyManager.addWarning(data.userId);
                         int currentWarn = PenaltyManager.getWarningCount(data.userId);
-                        showMsgPopup("경고 부여", "경고가 부여되었습니다.\n(현재 누적: " + currentWarn + "회)");
+
+                        if (currentWarn >= 2) {
+                            showMsgPopup("예약 정지",
+                                    "🚫 경고 2회 누적!\n해당 회원은 7일간 예약이 정지되었습니다.");
+                        } else {
+                            int displayWarn = Math.min(2, currentWarn);
+                            showMsgPopup("경고 부여",
+                                    "경고가 부여되었습니다.\n(현재 누적: " + displayWarn + "회)");
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
 
                     refreshList();
@@ -312,17 +336,15 @@ public class AdminSpaceManageFrame extends JFrame {
     // 🔹 DB에 미입실 취소 상태 반영
     // ================================
     private boolean updateReservationAsNoShow(SpaceData data) {
-        // PK인 reservation_id 로 단일 행 업데이트
         String sql =
-                "UPDATE space_reservation " +
-                "SET status = 'NO_SHOW' " +
-                "WHERE reservation_id = ?";
+            "UPDATE space_reservation " +
+            "SET status = 'NO_SHOW' " +
+            "WHERE reservation_id = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, data.reservationId);
-
             int updated = pstmt.executeUpdate();
             return updated > 0;
 

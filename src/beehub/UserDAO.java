@@ -195,11 +195,9 @@ public class UserDAO {
 
     public CouncilInfo getCouncilInfo(String id, String pw) {
 
-        if (id.equals("council_soft") && pw.equals("1234"))
-            return new CouncilInfo("council_soft", "소프트웨어융합학과");
 
-        if (id.equals("council_general") && pw.equals("1234"))
-            return new CouncilInfo("council_general", "총학생회");
+//        if (id.equals("council_general") && pw.equals("1234"))
+//            return new CouncilInfo("council_general", "총학생회");
 
         return null;
     }

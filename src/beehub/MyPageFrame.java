@@ -17,12 +17,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import beehub.DBUtil;
+import java.time.LocalTime;
+import java.time.LocalDateTime;
+
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Date;   // (DATE(MIN(created_at)) 결과 받으려고)
-
+import java.sql.Date;  
 
 // 커뮤니티 관련
 import beehub.CommunityDAO;
@@ -572,11 +574,16 @@ public class MyPageFrame extends JFrame {
 
     // ===================== 응모 팝업 =====================
     private void showApplyPopup(JLabel currentPointLabel) {
+        int costPoints = 100;  // 응모 1회에 필요한 꿀
+
         Member user = LoginSession.getUser();
         if (user == null) {
             JOptionPane.showMessageDialog(this, "로그인이 필요합니다.");
             return;
         }
+
+        // 🔹 여기서 학번 뽑아오기
+        String hakbun = user.getHakbun();    // Member에 getHakbun() 있다고 가정
 
         // 학생회 / 관리자 막기 (role은 너 프로젝트 기준으로 맞춰)
         String role = user.getRole();
@@ -587,9 +594,9 @@ public class MyPageFrame extends JFrame {
         }
 
         int currentPoint = user.getPoint();   // Member에 getPoint() 있다고 가정
-        if (currentPoint < 100) {
+        if (currentPoint < costPoints) {
             JOptionPane.showMessageDialog(this,
-                    "보유 꿀이 부족합니다.\n응모는 100꿀 이상부터 가능합니다.");
+                    "보유 꿀이 부족합니다.\n응모는 " + costPoints + "꿀 이상부터 가능합니다.");
             return;
         }
 
@@ -610,7 +617,7 @@ public class MyPageFrame extends JFrame {
 
         String selected = (String) JOptionPane.showInputDialog(
                 this,
-                "응모할 회차를 선택하세요.\n(응모 1회당 100꿀 차감)",
+                "응모할 회차를 선택하세요.\n(응모 1회당 " + costPoints + "꿀 차감)",
                 "경품 추첨 응모",
                 JOptionPane.PLAIN_MESSAGE,
                 null,
@@ -636,21 +643,42 @@ public class MyPageFrame extends JFrame {
         LotteryManager.LotteryRound chosen = rounds.get(idx);
         int roundId = chosen.roundId;
 
+        // 🔹 [추가] 응모 기간 체크
+        if (chosen.applicationPeriod != null && chosen.applicationPeriod.contains("~")) {
+            try {
+                String[] periodParts = chosen.applicationPeriod.split("~");
+                LocalDate startDate = LocalDate.parse(periodParts[0].trim());
+                LocalDate endDate   = LocalDate.parse(periodParts[1].trim());
+                LocalDate today     = LocalDate.now();
+
+                if (today.isBefore(startDate) || today.isAfter(endDate)) {
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "해당 회차의 응모 기간이 아닙니다.\n" +
+                            "응모 기간: " + chosen.applicationPeriod
+                    );
+                    return;
+                }
+            } catch (Exception ex) {
+                // 파싱 실패하면 일단 그냥 진행 (DB 쪽에서 한 번 더 체크)
+                ex.printStackTrace();
+            }
+        }
+
         // 진짜 응모 진행 여부 재확인
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                selected + "\n\n정말로 100꿀을 사용하여 1회 응모하시겠습니까?",
+                selected + "\n\n정말로 " + costPoints + "꿀을 사용하여 1회 응모하시겠습니까?",
                 "응모 확인",
                 JOptionPane.YES_NO_OPTION
         );
         if (confirm != JOptionPane.YES_OPTION) return;
 
-        // DB에 응모 시도
-        boolean success = LotteryManager.applyUsingPoints(roundId, user.getHakbun());
-
+        // 🔹 DB에 응모 시도
+        boolean success = LotteryManager.applyUsingPoints(roundId, hakbun);
         if (success) {
-            // Member 객체의 포인트도 동기화 (현재 포인트에서 100 차감)
-            int newPoint = currentPoint - 100;
+            // Member 객체의 포인트도 동기화
+            int newPoint = currentPoint - costPoints;
             user.setPoint(newPoint);        // Member에 setPoint() 있다고 가정
             currentPointLabel.setText(newPoint + "꿀");
 
@@ -674,6 +702,8 @@ public class MyPageFrame extends JFrame {
                             "해당 회차에서 사용 가능한 응모권을 모두 사용했을 수 있습니다.");
         }
     }
+
+
 
     private void showCheckWinningPopup() {
         JDialog dialog = new JDialog(this, "당첨 확인", true);
@@ -820,25 +850,40 @@ public class MyPageFrame extends JFrame {
         }
     }
 
-    // 👉 시간 빼고 날짜만 표시
-    class SpaceDateTimeRenderer extends DefaultTableCellRenderer {
-        public SpaceDateTimeRenderer() {
-            setHorizontalAlignment(JLabel.CENTER);
-        }
-
+    private class SpaceDateTimeRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
-                                                       boolean hasFocus, int row, int column) {
-            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            JLabel label = (JLabel) c;
+        public Component getTableCellRendererComponent(
+                JTable table, Object value, boolean isSelected,
+                boolean hasFocus, int row, int column) {
+
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            setHorizontalAlignment(SwingConstants.CENTER);
+
             if (value instanceof SpaceRentalItem) {
                 SpaceRentalItem item = (SpaceRentalItem) value;
-                label.setText(item.reservationDate);
+
+                StringBuilder sb = new StringBuilder();
+
+                if (item.reservationDate != null && !item.reservationDate.isEmpty()) {
+                    sb.append(item.reservationDate);
+                }
+
+                if (item.startTime != null && !item.startTime.isEmpty()
+                        && item.endTime != null && !item.endTime.isEmpty()) {
+                    sb.append("  ")
+                      .append(item.startTime)
+                      .append(" ~ ")
+                      .append(item.endTime);
+                }
+
+                setText(sb.toString());
             }
-            label.setFont(uiFont.deriveFont(16f));
-            return label;
+
+            return this;
         }
     }
+
 
     class EventScheduleRenderer extends DefaultTableCellRenderer {
         public EventScheduleRenderer() {
@@ -859,41 +904,44 @@ public class MyPageFrame extends JFrame {
         }
     }
 
-    class SpaceActionRenderer extends DefaultTableCellRenderer {
-        public SpaceActionRenderer() {
-            setHorizontalAlignment(JLabel.CENTER);
-        }
-
+    private class SpaceActionRenderer extends DefaultTableCellRenderer {
         @Override
-        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
-                                                       boolean hasFocus, int row, int column) {
-            Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            JLabel label = (JLabel) c;
-            label.setFont(uiFont.deriveFont(16f));
-            if (isSelected) label.setBackground(HIGHLIGHT_YELLOW);
-            else label.setBackground(Color.WHITE);
-            ReservationStatus status = (ReservationStatus) value;
-            label.setForeground(BROWN);
-            switch (status) {
-                case CANCELLABLE:
-                    label.setText("<html><u>취소</u></html>");
-                    label.setForeground(CANCEL_RED);
-                    break;
-                case COMPLETED:
-                    label.setText("완료");
-                    break;
-                case USER_CANCELLED:
-                    label.setText("취소 완료");
-                    break;
-                case AUTO_CANCELLED:
-                    label.setText("예약 취소");
-                    label.setForeground(OVERDUE_RED);
-                    label.setFont(uiFont.deriveFont(Font.BOLD, 16f));
-                    break;
+        public Component getTableCellRendererComponent(
+                JTable table, Object value, boolean isSelected,
+                boolean hasFocus, int row, int column) {
+
+            super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+            if (value instanceof ReservationStatus) {
+                ReservationStatus st = (ReservationStatus) value;
+
+                setHorizontalAlignment(SwingConstants.CENTER);
+
+                switch (st) {
+                    case CANCELLABLE:
+                        setText("취소");
+                        setForeground(new Color(0, 120, 0));
+                        break;
+                    case USER_CANCELLED:
+                        setText("취소완료");
+                        setForeground(new Color(150, 150, 150));
+                        break;
+                    case AUTO_CANCELLED:
+                        setText("미입실");                     
+                        setForeground(new Color(220, 50, 50)); 
+                        break;
+                    case COMPLETED:
+                    default:
+                        setText("이용완료");
+                        setForeground(new Color(80, 80, 80));
+                        break;
+                }
             }
-            return label;
+
+            return this;
         }
     }
+
 
     class EventActionRenderer extends DefaultTableCellRenderer {
         public EventActionRenderer() {
@@ -1247,58 +1295,97 @@ public class MyPageFrame extends JFrame {
 
             for (ReservationSummary rs : list) {
 
-                // 🔎 세미나실 / 실습실만 필터링
+                // ✅ DAO에서 이미 room_type 으로 세미나실/실습실만 가져왔으니
+                //    여기서는 추가 필터 없이 그대로 사용
                 String roomName = (rs.roomName != null) ? rs.roomName.trim() : "";
-                boolean isSeminar = roomName.contains("세미나실");
-                boolean isLab     = roomName.contains("실습실");
-                if (!isSeminar && !isLab) {
-                    // 201호, 205호 같은 빈 강의실은 건너뜀
-                    continue;
-                }
 
                 String dateStr = (rs.reserveDate != null) ? rs.reserveDate.toString() : "";
 
                 String startTime = "";
                 String endTime = "";
+                LocalTime startLocal = null;
+                LocalTime endLocal   = null;
+
                 if (rs.timeSlot != null && rs.timeSlot.contains("~")) {
                     String[] parts = rs.timeSlot.split("~");
                     if (parts.length >= 2) {
                         startTime = parts[0].trim();
-                        endTime = parts[1].trim();
+                        endTime   = parts[1].trim();
+                        try {
+                            startLocal = LocalTime.parse(startTime);
+                            endLocal   = LocalTime.parse(endTime);
+                        } catch (Exception ignore) {}
                     }
                 } else if (rs.timeSlot != null) {
                     String normalized = rs.timeSlot.replace("-", "~");
                     String[] parts = normalized.split("~");
                     if (parts.length >= 2) {
                         startTime = parts[0].trim();
-                        endTime = parts[1].trim();
+                        endTime   = parts[1].trim();
+                        try {
+                            startLocal = LocalTime.parse(startTime);
+                            endLocal   = LocalTime.parse(endTime);
+                        } catch (Exception ignore) {}
                     }
                 }
+
 
                 ReservationStatus statusEnum;
                 String statusStr = (rs.status != null) ? rs.status.toUpperCase() : "";
 
+                // 현재 시각 (날짜+시간 기준 비교용)
+                LocalDateTime now = LocalDateTime.now();
+
                 switch (statusStr) {
+
+                    // 사용자 취소
+                    case "CANCELED":
                     case "USER_CANCELLED":
                     case "CANCELLED_USER":
                         statusEnum = ReservationStatus.USER_CANCELLED;
                         break;
+
+                    // 관리자 미입실 / 자동취소
+                    case "NO_SHOW":
                     case "AUTO_CANCELLED":
                     case "CANCELLED_AUTO":
                         statusEnum = ReservationStatus.AUTO_CANCELLED;
                         break;
+
                     case "COMPLETED":
                         statusEnum = ReservationStatus.COMPLETED;
                         break;
+
                     case "RESERVED":
                     default:
-                        if (rs.reserveDate != null && rs.reserveDate.isAfter(today)) {
-                            statusEnum = ReservationStatus.CANCELLABLE;
+                        boolean finished = false;
+
+                        if (rs.reserveDate != null) {
+                            LocalDate reserveDate = rs.reserveDate;
+
+                            // 1) 어제 이전이면 무조건 끝난 것
+                            if (reserveDate.isBefore(today)) {
+                                finished = true;
+                            }
+                            // 2) 오늘이면 종료시간 기준으로 비교
+                            else if (reserveDate.isEqual(today) && endLocal != null) {
+                                LocalDateTime endDateTime = LocalDateTime.of(reserveDate, endLocal);
+                                if (!now.isBefore(endDateTime)) {   // now >= end
+                                    finished = true;
+                                }
+                            }
+                            // 3) 오늘 이후면 finished = false 그대로 (미래 예약)
+                        }
+
+                        if (finished) {
+                            statusEnum = ReservationStatus.COMPLETED;   // 이용완료
                         } else {
-                            statusEnum = ReservationStatus.COMPLETED;
+                            statusEnum = ReservationStatus.CANCELLABLE; // 취소 가능
                         }
                         break;
                 }
+
+
 
                 int headcount = 0;
 
@@ -1320,6 +1407,7 @@ public class MyPageFrame extends JFrame {
                         item.status
                 });
             }
+
 
 
 

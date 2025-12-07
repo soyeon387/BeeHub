@@ -110,7 +110,7 @@ public class AdminItemManageFrame extends JFrame {
 
     private JPanel createItemCard(Item item) {
         JPanel p = new JPanel(null);
-        // 비활성인 경우 살짝 회색
+        // 비활성인 경우 살짝 회색 (기존 is_active 컬럼 그대로 활용)
         p.setBackground(item.isActive() ? Color.WHITE : new Color(245, 245, 245));
         p.setBorder(new RoundedBorder(15, Color.LIGHT_GRAY));
 
@@ -180,38 +180,44 @@ public class AdminItemManageFrame extends JFrame {
         edit.addActionListener(e -> new AdminItemAddDialog(this, item));
         p.add(edit);
 
-        // 🔥 활성/비활성 토글 버튼
-        final boolean isActive = item.isActive();
-        String btnLabel = isActive ? "비활성화" : "활성화";
-        Color btnColor = isActive ? new Color(255, 100, 100) : new Color(120, 180, 120);
-        Color borderColor = isActive ? new Color(200, 50, 50) : new Color(80, 130, 80);
-
-        JButton del = new JButton(btnLabel);
+        // 🔥 삭제 버튼 (이제 비활성/활성 토글 대신 완전 삭제)
+        JButton del = new JButton("삭제");
         del.setBounds(610, 30, 70, 40);
         del.setFont(uiFont.deriveFont(12f));
-        del.setBackground(btnColor);
+        del.setBackground(new Color(200, 50, 50));
         del.setForeground(Color.WHITE);
-        del.setBorder(new RoundedBorder(10, borderColor));
-        del.addActionListener(e -> {
-            String actionName = isActive ? "비활성화" : "활성화";
-            boolean confirm = showConfirmPopup("상태 변경 확인",
-                    "정말 [" + item.getName() + "] 항목을\n" + actionName + " 하시겠습니까?");
-            if (confirm) {
-                boolean ok;
-                if (isActive) {
-                    ok = ItemDAO.getInstance().deactivateItem(item.getItemId());
-                } else {
-                    ok = ItemDAO.getInstance().activateItem(item.getItemId());
-                }
+        del.setBorder(new RoundedBorder(10, new Color(160, 40, 40)));
 
-                if (ok) {
-                    JOptionPane.showMessageDialog(this,
-                            "물품이 " + actionName + "되었습니다.");
-                    refreshList();
-                } else {
-                    JOptionPane.showMessageDialog(this,
-                            "물품 " + actionName + "에 실패했습니다.");
-                }
+        del.addActionListener(e -> {
+            // 1) 삭제 재확인 팝업
+            boolean confirm = showConfirmPopup(
+                    "삭제 확인",
+                    "[" + item.getName() + "] 물품을\n정말 삭제하시겠습니까?\n(삭제 시 되돌릴 수 없습니다)"
+            );
+
+            if (!confirm) return;
+
+            // 2) 현재 대여중인지 체크
+            boolean rented = ItemDAO.getInstance().isItemRented(item.getItemId());
+
+            if (rented) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "현재 누군가 대여 중인 물품은 삭제할 수 없습니다.",
+                        "삭제 불가",
+                        JOptionPane.ERROR_MESSAGE
+                );
+                return;
+            }
+
+            // 3) 삭제 실행
+            boolean ok = ItemDAO.getInstance().deleteItem(item.getItemId());
+
+            if (ok) {
+                JOptionPane.showMessageDialog(this, "물품이 정상적으로 삭제되었습니다.");
+                refreshList();
+            } else {
+                JOptionPane.showMessageDialog(this, "물품 삭제에 실패했습니다.");
             }
         });
         p.add(del);

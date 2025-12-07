@@ -62,18 +62,33 @@ public class RentDAO {
     }
 
     // 2. 모든 대여 기록 조회 (getAllRentals)
+ // 2. 모든 대여 기록 조회 (getAllRentals)
     public List<Rent> getAllRentals() {
         List<Rent> list = new ArrayList<>();
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        String sql = "SELECT * FROM RENTAL ORDER BY rental_id DESC"; 
+
+        String sql =
+            "SELECT " +
+            "  r.rental_id, " +
+            "  r.item_id, " +
+            "  r.item_name, " +
+            "  r.renter_id, " +
+            "  m.name AS renter_name, " +   // 🔹 회원 이름 가져오기
+            "  r.rent_date, " +
+            "  r.due_date, " +
+            "  r.return_date, " +
+            "  r.is_returned " +
+            "FROM RENTAL r " +
+            "JOIN members m ON r.renter_id = m.hakbun " + // 🔹 학번으로 조인
+            "ORDER BY r.rental_id DESC";
 
         try {
             conn = DBUtil.getConnection();
             pstmt = conn.prepareStatement(sql);
             rs = pstmt.executeQuery();
-            
+
             while (rs.next()) {
                 list.add(getRentFromResultSet(rs));
             }
@@ -85,6 +100,7 @@ public class RentDAO {
         }
         return list;
     }
+
     
     // 3. 사용자의 미반납 대여 건수 조회 (getCurrentRentalCount)
     // ItemDetailFrame에서 PenaltyManager가 호출하던 로직을 DB에서 가져옴
@@ -136,9 +152,6 @@ public class RentDAO {
         }
     }
     
-    // 5. [핵심] 해당 물품 ID로 현재 대여 중(미반납)인 기록이 있는지 확인 (isItemCurrentlyRented)
-    // 이 메서드는 기존 RentManager에 있었지만, DB 기반에서는 거의 사용되지 않고 재고(ItemDAO)로 대체됩니다.
-    // 하지만 Admin 기능에서 필요할 수 있으므로 유지합니다.
     public boolean isItemCurrentlyRented(int itemId) {
          Connection conn = null;
          PreparedStatement pstmt = null;

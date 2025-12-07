@@ -29,29 +29,31 @@ public class ItemDAO {
         return item;
     }
 
+    // ✅ 활성화된 물품만 (사용자용)
     public List<Item> getAllItems() {
         List<Item> items = new ArrayList<>();
         Connection conn = null;
         PreparedStatement pstmt = null;
         ResultSet rs = null;
-        String sql = "SELECT * FROM ITEM WHERE is_active = TRUE ORDER BY name"; 
+        String sql = "SELECT * FROM ITEM WHERE is_active = TRUE ORDER BY name";
 
         try {
             conn = DBUtil.getConnection();
             pstmt = conn.prepareStatement(sql);
             rs = pstmt.executeQuery();
-            
+
             while (rs.next()) {
                 items.add(getItemFromResultSet(rs));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            DBUtil.close(conn, pstmt, rs);   // ✅ beehub.DBUtil.close
+            DBUtil.close(conn, pstmt, rs);
         }
         return items;
     }
-    
+
+    // ✅ 대여 시 재고 -1
     public boolean decreaseAvailableStock(int itemId) {
         Connection conn = null;
         PreparedStatement pstmt = null;
@@ -59,50 +61,51 @@ public class ItemDAO {
                 "SET available_stock = available_stock - 1 " +
                 "WHERE item_id = ? AND available_stock > 0";
         int rowsAffected = 0;
-        
+
         try {
             conn = DBUtil.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, itemId);
             rowsAffected = pstmt.executeUpdate();
-            
+
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
-            DBUtil.close(conn, pstmt);   // ✅
+            DBUtil.close(conn, pstmt);
         }
         return rowsAffected > 0;
     }
 
-    // 🚨 [추가] 물품 반납 시 재고 증가 메서드
+    // ✅ 물품 반납 시 재고 +1
     public boolean increaseAvailableStock(int itemId) {
         Connection conn = null;
         PreparedStatement pstmt = null;
         String sql = "UPDATE ITEM " +
                 "SET available_stock = available_stock + 1 " +
-                "WHERE item_id = ? AND available_stock < total_stock";        
+                "WHERE item_id = ? AND available_stock < total_stock";
         try {
-            conn = DBUtil.getConnection();   // ✅
+            conn = DBUtil.getConnection();
             pstmt = conn.prepareStatement(sql);
             pstmt.setInt(1, itemId);
-            
+
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         } finally {
-            DBUtil.close(conn, pstmt);       // ✅
+            DBUtil.close(conn, pstmt);
         }
     }
- // ✅ 단일 물품 조회 (관리 화면에서 수정할 때 필요)
+
+    // ✅ 단일 물품 조회 (관리 화면에서 수정할 때 필요)
     public Item getItemById(int itemId) {
         String sql = "SELECT * FROM ITEM WHERE item_id = ?";
-        
+
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+
             pstmt.setInt(1, itemId);
-            
+
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     return getItemFromResultSet(rs);
@@ -134,12 +137,11 @@ public class ItemDAO {
     }
 
     // ✅ 물품 추가 (INSERT)
-    //  - total_stock, max_rent_days, target_major, image_path, is_active 사용
     //  - available_stock 은 처음에 total_stock 과 동일하게 세팅
     public boolean addItem(Item item) {
         String sql = "INSERT INTO ITEM " +
-                     "(name, total_stock, available_stock, max_rent_days, target_major, image_path, is_active) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, 1)";
+                "(name, total_stock, available_stock, max_rent_days, target_major, image_path, is_active) " +
+                "VALUES (?, ?, ?, ?, ?, ?, 1)";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -168,18 +170,15 @@ public class ItemDAO {
     }
 
     // ✅ 물품 정보 수정 (UPDATE)
-    //  - 이름, 총 재고, 대여일수, 대상학과, 이미지, 활성 여부 수정
-    //  - total_stock 을 줄였을 때 available_stock 이 너무 큰 경우 등은
-//        나중에 별도 로직으로 다듬어도 됨(지금은 그대로 둠)
     public boolean updateItem(Item item) {
         String sql = "UPDATE ITEM SET " +
-                     "name = ?, " +
-                     "total_stock = ?, " +
-                     "max_rent_days = ?, " +
-                     "target_major = ?, " +
-                     "image_path = ?, " +
-                     "is_active = ? " +
-                     "WHERE item_id = ?";
+                "name = ?, " +
+                "total_stock = ?, " +
+                "max_rent_days = ?, " +
+                "target_major = ?, " +
+                "image_path = ?, " +
+                "is_active = ? " +
+                "WHERE item_id = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -199,8 +198,7 @@ public class ItemDAO {
         }
     }
 
-    // ✅ 물품 비활성화 (삭제처럼 쓰기)
-    //  - 실제 DELETE 대신 is_active = 0
+    // ✅ 물품 비활성화 (이전 방식 - 지금은 안 써도 됨)
     public boolean deactivateItem(int itemId) {
         String sql = "UPDATE ITEM SET is_active = 0 WHERE item_id = ?";
 
@@ -215,7 +213,7 @@ public class ItemDAO {
         }
     }
 
-    // ✅ 다시 활성화
+    // ✅ 다시 활성화 (이전 방식 - 지금은 안 써도 됨)
     public boolean activateItem(int itemId) {
         String sql = "UPDATE ITEM SET is_active = 1 WHERE item_id = ?";
 
@@ -230,4 +228,43 @@ public class ItemDAO {
         }
     }
 
+    // ✅ [추가] 현재 누가 빌리고 있는지 체크
+    //  rental 테이블에서 is_returned = 0 이 하나라도 있으면 "대여 중"
+    public boolean isItemRented(int itemId) {
+        String sql = "SELECT COUNT(*) FROM rental WHERE item_id = ? AND is_returned = 0";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, itemId);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        // 에러가 나면 안전하게 "대여 중" 으로 간주해서 삭제 막기
+        return true;
+    }
+
+    // ✅ [추가] 실제 물품 삭제 (DELETE)
+    //  - AdminItemManageFrame 에서 isItemRented() 검사 후 호출
+    public boolean deleteItem(int itemId) {
+        String sql = "DELETE FROM ITEM WHERE item_id = ?";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, itemId);
+            return pstmt.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

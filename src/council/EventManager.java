@@ -14,18 +14,19 @@ public class EventManager {
     public static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy.MM.dd (E) HH:mm");
 
-    // =========================
-    //  회비 조건 (기존 코드 호환)
-    // =========================
-    public enum FeeType {
-        NONE("누구나 참여 가능"),
-        SCHOOL("학교 학생회비 납부자"),
-        DEPT("과 학생회비 납부자");
+ // =========================
+//  회비 조건 (기존 코드 호환)
+// =========================
+public enum FeeType {
+    NONE("누구나 참여 가능"),
+    SCHOOL("학교 학생회비 납부자"),
+    DEPT("과 학생회비 납부자");
 
-        private final String label;
-        FeeType(String label) { this.label = label; }
-        public String getLabel() { return label; }
-    }
+    private final String label;
+    FeeType(String label) { this.label = label; }
+    public String getLabel() { return label; }
+}
+
 
     // =========================
     //  명단 DTO (기존 코드용)
@@ -54,6 +55,7 @@ public class EventManager {
         public String location;
         public LocalDateTime applyStart;
         public LocalDateTime applyEnd;
+        public LocalDateTime endDateTime;
         public int totalCount;
         public int currentCount;
         public String secretCode;
@@ -61,11 +63,8 @@ public class EventManager {
         public String status;               // "진행중" / "신청마감" / "종료"
         public String targetDept;           // target_major
         public String ownerHakbun;          // 주최 학생회 ID
-
-        // 옛 코드에서 쓰던 필드 이름
         public LocalDateTime startDateTime;
 
-        // 회비 조건
         public FeeType requiredFee = FeeType.NONE;
 
         // 명단 (UI 용)
