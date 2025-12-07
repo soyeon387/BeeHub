@@ -18,9 +18,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Date;
-
-import beehub.DBUtil;
 
 public class EmptyClassFrame extends JFrame {
 
@@ -52,8 +49,11 @@ public class EmptyClassFrame extends JFrame {
     private JComboBox<String> buildingCombo, timeCombo;
     private JButton searchBtn;
 
-    // [추가] 결과 없음 안내 라벨
+    // 결과 없음 안내 라벨
     private JLabel noDataLabel;
+
+    // ✅ 강의 시간표 DAO
+    private ClassTimetableDAO timetableDAO = ClassTimetableDAO.getInstance();
 
     public EmptyClassFrame() {
         setTitle("서울여대 꿀단지 - 빈 강의실 찾기");
@@ -101,73 +101,47 @@ public class EmptyClassFrame extends JFrame {
         }
     }
 
-
+    /**
+     * ✅ 선택한 날짜의 요일 기준으로
+     * class_timetable 에 있는 수업 시간들을 읽어와
+     * 각 ClassRoom 의 occupiedHours 리스트를 채우는 메서드
+     */
     private void loadOccupiedHoursForDate(LocalDate date) {
         // 기존 점유 시간 싹 비우기
         for (ClassRoom room : allRooms) {
             room.occupiedHours.clear();
         }
 
-        String sql =
-            "SELECT si.building_name, si.room_name, sr.time_slot " +
-            "FROM space_info si " +
-            "JOIN space_reservation sr ON si.space_id = sr.space_id " +
-            "WHERE si.is_active = 1 " +
-            "  AND si.room_type = '강의실' " +       // 강의실만
-            "  AND sr.reserve_date = ? " +
-            "  AND sr.status = 'RESERVED'";         // DB에 맞게
+        // DAO 를 이용해 해당 날짜(요일) 수업 목록 조회
+        List<ClassTimetableDAO.ClassSchedule> schedules =
+                timetableDAO.getSchedulesByDate(date);
 
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        int count = 0;
 
-            pstmt.setDate(1, Date.valueOf(date));
+        for (ClassTimetableDAO.ClassSchedule sc : schedules) {
+            String building = sc.buildingName;
+            String roomName = sc.roomName;
+            int start = sc.startHour;
+            int end   = sc.endHour;
 
-            int count = 0;
+            // 해당 강의실 찾아서 점유 시간 추가
+            for (ClassRoom room : allRooms) {
+                if (room.buildingName.equals(building)
+                        && room.roomNo.equals(roomName)) {
 
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    String building = rs.getString("building_name");
-                    String roomName = rs.getString("room_name");
-                    String slot = rs.getString("time_slot");  // 예: "09:00~10:00"
-
-                    if (slot == null) continue;
-
-                    String[] parts = slot.split("~");
-                    if (parts.length != 2) continue;
-
-                    String startPart = parts[0].trim(); // "09:00"
-                    String endPart   = parts[1].trim(); // "10:00"
-
-                    int start = Integer.parseInt(startPart.split(":")[0]);
-                    int end   = Integer.parseInt(endPart.split(":")[0]);
-
-                    // 해당 강의실 찾아서 점유 시간 추가
-                    for (ClassRoom room : allRooms) {
-                        if (room.buildingName.equals(building)
-                                && room.roomNo.equals(roomName)) {
-
-                            for (int h = start; h < end; h++) {
-                                if (!room.occupiedHours.contains(h)) {
-                                    room.occupiedHours.add(h);
-                                }
-                            }
-                            break;
+                    for (int h = start; h < end; h++) {
+                        if (!room.occupiedHours.contains(h)) {
+                            room.occupiedHours.add(h);
                         }
                     }
-                    count++;
+                    break;
                 }
             }
-
-            System.out.println("[빈강의실] " + date + " 예약 레코드: " + count + "건");
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            showSimplePopup("DB 오류",
-                    "예약 정보를 불러오는 중 오류가 발생했습니다.\n" + e.getMessage());
+            count++;
         }
+
+        System.out.println("[빈강의실] " + date + " 강의 일정 레코드: " + count + "건");
     }
-
-
 
     private void initHeader() {
         JPanel headerPanel = new JPanel(null);
@@ -340,7 +314,7 @@ public class EmptyClassFrame extends JFrame {
         // 선택한 시간대의 시작 시각 (예: "09:00 ~ 10:00" → 9)
         int selectedHour = Integer.parseInt(timeStr.split(":")[0]);
 
-        // 이 날짜의 예약 정보로 occupiedHours 갱신
+        // 이 날짜의 강의 시간표로 occupiedHours 갱신
         loadOccupiedHoursForDate(date);
 
         // 디버그: 현재 점유 상태
@@ -361,15 +335,15 @@ public class EmptyClassFrame extends JFrame {
 
             if (!isMatch) continue;
 
-            // 여기서 정말로 걸러지는지 로그 찍기
+            // 이 시간에 수업이 있으면 제외
             if (room.occupiedHours.contains(selectedHour)) {
-                System.out.println("예약됨 → 테이블에서 제외: "
+                System.out.println("수업 중 → 테이블에서 제외: "
                         + room.buildingName + " " + room.roomNo
                         + " (점유시간=" + room.occupiedHours + ")");
                 continue;
             }
 
-            // 화면에 보이는 건 딱 여기에서만 추가됨
+            // 수업이 없는 강의실만 표시
             tableModel.addRow(new Object[]{
                 room.buildingName,
                 room.roomNo,
@@ -383,7 +357,6 @@ public class EmptyClassFrame extends JFrame {
             noDataLabel.setVisible(true);
         }
     }
-
 
     // --- 헬퍼 메서드들 ---
 
