@@ -29,10 +29,6 @@ public class ClassTimetableDAO {
     
     }
 
-    /**
-     * 특정 날짜에 해당하는 요일 기준으로
-     * '강의실(room_type = 강의실)' 에 잡힌 수업 목록을 조회
-     */
     public List<ClassSchedule> getSchedulesByDate(LocalDate date) {
         List<ClassSchedule> list = new ArrayList<>();
 
