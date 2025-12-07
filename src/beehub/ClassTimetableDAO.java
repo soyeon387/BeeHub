@@ -26,6 +26,7 @@ public class ClassTimetableDAO {
             this.startHour = startHour;
             this.endHour = endHour;
         }
+    
     }
 
     /**
