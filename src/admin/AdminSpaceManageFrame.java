@@ -92,7 +92,7 @@ public class AdminSpaceManageFrame extends JFrame {
                 int maxPeople     = rs.getInt("people_count");
 
                 String userId   = rs.getString("hakbun");
-                String userName = rs.getString("name");   // ⭐ 여기! user_name이 아니라 name
+                String userName = rs.getString("name");   // ⭐ members.name
 
                 if (userName == null || userName.isEmpty()) {
                     userName = userId;
@@ -223,13 +223,8 @@ public class AdminSpaceManageFrame extends JFrame {
         roomLabel.setBounds(20, 15, 350, 30);
         panel.add(roomLabel);
 
-        int warn = 0;
-        try {
-            warn = Math.min(2, PenaltyManager.getWarningCount(data.userId)); // 최대 2회까지만 표시
-        } catch (Exception ignore) {}
-
+        // 🔥 경고 횟수 표시 제거 (기존 PenaltyManager 사용 부분 삭제)
         String statusText = data.statusKor;
-        if (warn > 0) statusText += " (경고 " + warn + "회)";
 
         JLabel statusLabel = new JLabel(statusText);
         statusLabel.setFont(uiFont.deriveFont(14f));
@@ -289,35 +284,29 @@ public class AdminSpaceManageFrame extends JFrame {
                 }
 
                 boolean confirm = showConfirmPopup(
-                        "패널티 부여",
-                        "[" + data.userName + "]님 미입실로 취소하시겠습니까?\n(누적 시 패널티 부여)"
+                        "꿀 포인트 차감",
+                        "[" + data.userName + "]님을 미입실로 처리하시겠습니까?\n(50꿀이 차감됩니다)"
                 );
 
                 if (confirm) {
+                    // 1) 예약 상태 NO_SHOW로 변경
                     boolean dbOk = updateReservationAsNoShow(data);
                     if (!dbOk) {
                         showMsgPopup("DB 오류", "예약 취소 처리 중 오류가 발생했습니다.");
                         return;
                     }
 
+                    // 2) 회원 포인트 50 차감
+                    boolean pointOk = deductPointForNoShow(data.userId, 50);
+                    if (!pointOk) {
+                        showMsgPopup("포인트 차감 실패", "예약은 미입실 처리되었으나,\n포인트 차감에 실패했습니다.");
+                    } else {
+                        showMsgPopup("미입실 처리 완료",
+                                "미입실로 처리되었습니다.\n해당 회원의 꿀 50점이 차감되었습니다.");
+                    }
+
                     data.statusKor = "미입실 취소";
                     data.statusRaw = "NO_SHOW";
-
-                    try {
-                        PenaltyManager.addWarning(data.userId);
-                        int currentWarn = PenaltyManager.getWarningCount(data.userId);
-
-                        if (currentWarn >= 2) {
-                            showMsgPopup("예약 정지",
-                                    "🚫 경고 2회 누적!\n해당 회원은 7일간 예약이 정지되었습니다.");
-                        } else {
-                            int displayWarn = Math.min(2, currentWarn);
-                            showMsgPopup("경고 부여",
-                                    "경고가 부여되었습니다.\n(현재 누적: " + displayWarn + "회)");
-                        }
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
 
                     refreshList();
                 }
@@ -345,6 +334,30 @@ public class AdminSpaceManageFrame extends JFrame {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, data.reservationId);
+            int updated = pstmt.executeUpdate();
+            return updated > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // =======================================
+    // 🔹 미입실 시 포인트 차감 (기본 50꿀)
+    // =======================================
+    private boolean deductPointForNoShow(String hakbun, int amount) {
+        String sql =
+            "UPDATE members " +
+            "SET point = GREATEST(point - ?, 0) " +  // 0 이하로는 내려가지 않게
+            "WHERE hakbun = ?";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, amount);
+            pstmt.setString(2, hakbun);
+
             int updated = pstmt.executeUpdate();
             return updated > 0;
 

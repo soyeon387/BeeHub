@@ -1,3 +1,4 @@
+// 파일명: EventDetailFrame.java
 package beehub;
 
 import javax.swing.*;
@@ -9,6 +10,7 @@ import java.time.LocalDateTime;
 
 import council.EventManager;
 import council.EventManager.EventData;
+import council.EventManager.FeeType;
 
 public class EventDetailFrame extends JFrame {
 
@@ -34,13 +36,9 @@ public class EventDetailFrame extends JFrame {
     }
 
     private String userName  = "사용자";
-    private String userId    = "20230000"; // 기본값
+    private String userId    = "20230000";
     private int    userPoint = 0;
-
-    // ✅ 학과 정보 (지금은 테스트용, 나중에 User에서 받아오면 됨)
-    private String  userDept        = "";
-    private boolean isSchoolFeePaid = true;   // 학교 학생회비 납부 여부
-    private boolean isDeptFeePaid   = false;  // 과 학생회비 납부 여부 (테스트: 미납)
+    private String userDept  = "";
 
     private EventData eventData;
     private boolean isApplied = false;
@@ -49,20 +47,19 @@ public class EventDetailFrame extends JFrame {
         this.eventData = event;
         setTitle("서울여대 꿀단지 - " + event.title);
         setSize(800, 600);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(null);
         getContentPane().setBackground(BG_MAIN);
 
-        // 로그인 사용자 정보
-        User currentUser = UserManager.getCurrentUser();
+        // 🔹 로그인 사용자 정보 세팅
+        Member currentUser = LoginSession.getUser();
         if (currentUser != null) {
             this.userName  = currentUser.getName();
-            this.userId    = currentUser.getId();
-            this.userPoint = currentUser.getPoints();
-
-            if (currentUser.getDept() != null) {
-                this.userDept = currentUser.getDept();
+            this.userId    = currentUser.getHakbun();
+            this.userPoint = currentUser.getPoint();
+            if (currentUser.getMajor() != null) {
+                this.userDept = currentUser.getMajor();
             }
         }
 
@@ -71,7 +68,7 @@ public class EventDetailFrame extends JFrame {
     }
 
     private void initUI() {
-        // --- 헤더 ---
+        // ===== 헤더 =====
         JPanel headerPanel = new JPanel(null);
         headerPanel.setBounds(0, 0, 800, 80);
         headerPanel.setBackground(HEADER_YELLOW);
@@ -97,26 +94,29 @@ public class EventDetailFrame extends JFrame {
         logoutBtn.setForeground(BROWN);
         logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutBtn.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) { showLogoutPopup(); }
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                showLogoutPopup();
+            }
         });
         userInfoPanel.add(logoutBtn);
 
         headerPanel.add(userInfoPanel);
 
-        // --- 네비게이션 ---
+        // ===== 상단 네비 =====
         JPanel navPanel = new JPanel(new GridLayout(1, 6));
         navPanel.setBounds(0, 80, 800, 50);
         navPanel.setBackground(NAV_BG);
         navPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(230, 230, 230)));
         add(navPanel);
 
-        String[] menus = {"물품대여", "간식행사", "공간대여", "빈 강의실", "커뮤니티", "마이페이지"};
+        String[] menus = {"물품대여", "과행사", "공간대여", "빈 강의실", "커뮤니티", "마이페이지"};
         for (String menu : menus) {
-            JButton menuBtn = createNavButton(menu, menu.equals("간식행사") || menu.equals("과행사"));
+            JButton menuBtn = createNavButton(menu, menu.equals("과행사"));
             navPanel.add(menuBtn);
         }
 
-        // --- 메인 컨텐츠 ---
+        // ===== 메인 컨텐츠 =====
         JPanel contentPanel = new JPanel(null);
         contentPanel.setBounds(0, 130, 800, 470);
         contentPanel.setBackground(BG_MAIN);
@@ -136,7 +136,7 @@ public class EventDetailFrame extends JFrame {
         });
         contentPanel.add(backButton);
 
-        // ✅ 상태 계산 (행사 시간이 지났으면 무조건 "종료")
+        // 🔹 상태 계산
         String computedStatus = computeEventStatus(eventData);
         eventData.status = computedStatus;
 
@@ -187,7 +187,7 @@ public class EventDetailFrame extends JFrame {
         slotsLabel.setBounds(50, yPos, 600, 25);
         contentPanel.add(slotsLabel);
 
-        // ✅ 진행/신청 중 + 정원이 안 찼을 때만 신청 버튼
+        // 🔹 상태 / 정원 체크
         String st = eventData.status != null ? eventData.status : "";
         boolean isOpenStatus =
                 "진행중".equals(st) || "진행 중".equals(st) ||
@@ -205,29 +205,21 @@ public class EventDetailFrame extends JFrame {
 
             applyButton.addActionListener(e -> {
 
-                // 0. 이미 신청 여부
                 if (isApplied) {
                     showSimplePopup("알림", "이미 신청하셨습니다.");
                     return;
                 }
 
-                // 1. 로그인 체크
-                User user = UserManager.getCurrentUser();
+                Member user = LoginSession.getUser();
                 if (user == null) {
                     showSimplePopup("안내", "로그인이 필요합니다.");
                     return;
                 }
 
-                // 2. 학과 체크
-                String myMajor = userDept; // 현재는 userDept 사용
-                if (myMajor == null) myMajor = "";
-                myMajor = myMajor.trim();
+                // 학과 체크
+                String myMajor = (user.getMajor() != null) ? user.getMajor().trim() : "";
+                String target  = (eventData.targetDept != null) ? eventData.targetDept.trim() : "";
 
-                String target = eventData.targetDept;   // DB에 저장된 대상 학과
-                if (target == null) target = "";
-                target = target.trim();
-
-                // target이 비어있거나 전체학과/ALL 이면 누구나 가능
                 if (!target.isEmpty()
                         && !"전체학과".equals(target)
                         && !"전체".equals(target)
@@ -240,28 +232,12 @@ public class EventDetailFrame extends JFrame {
                     }
                 }
 
-                // 3. 회비 납부 체크
-                boolean canJoin = true;
-                String feeMsg = "";
-
-                if (eventData.requiredFee == EventManager.FeeType.SCHOOL) {
-                    if (!isSchoolFeePaid) {
-                        canJoin = false;
-                        feeMsg = "학교 학생회비 납부자만";
-                    }
-                } else if (eventData.requiredFee == EventManager.FeeType.DEPT) {
-                    if (!isDeptFeePaid) {
-                        canJoin = false;
-                        feeMsg = "과 학생회비 납부자만";
-                    }
-                }
-
-                if (!canJoin) {
-                    showSimplePopup("신청 불가", feeMsg + "\n참여 가능한 행사입니다.");
+                // 🔹 회비 조건 체크 (DB에서 최신 값 읽어오기)
+                if (!checkFeeCondition(eventData, user)) {
                     return;
                 }
 
-                // 4. 비밀코드 체크
+                // 비밀코드
                 if (eventData.secretCode != null && !eventData.secretCode.isEmpty()) {
                     showSecretCodeDialog(slotsLabel, statusLabel, applyButton);
                 } else {
@@ -273,7 +249,49 @@ public class EventDetailFrame extends JFrame {
         }
     }
 
-    // ✅ 상태 계산 메소드 (행사 시간이 지났으면 종료)
+    // 🔹 회비 조건 체크 : DB에서 다시 읽어서 비교
+    private boolean checkFeeCondition(EventData event, Member sessionUser) {
+        FeeType fee = event.requiredFee;
+        if (fee == null || fee == FeeType.NONE) {
+            return true;
+        }
+
+        // DB에서 최신 회원 정보 다시 읽기
+        MemberDAO dao = new MemberDAO();
+        Member user = dao.findByHakbun(sessionUser.getHakbun());
+        if (user == null) {
+            showSimplePopup("오류", "회원 정보를 불러오지 못했습니다.");
+            return false;
+        }
+
+        String schoolYn = user.getIsFeePaid(); // is_fee_paid
+        String deptYn   = user.getDeptFeeYn(); // dept_fee_yn
+
+        System.out.println("DEBUG feeType=" + fee +
+                ", schoolYn=" + schoolYn + ", deptYn=" + deptYn);
+
+        if (fee == FeeType.SCHOOL) {
+            if (!"Y".equalsIgnoreCase(schoolYn)) {
+                showSimplePopup("신청 불가",
+                        "이 행사는 '학교 학생회비 납부자'만 신청할 수 있습니다.");
+                return false;
+            }
+            return true;
+        }
+
+        if (fee == FeeType.DEPT) {
+            if (!"Y".equalsIgnoreCase(deptYn)) {
+                showSimplePopup("신청 불가",
+                        "이 행사는 과 학생회비 납부자만 신청할 수 있습니다.");
+                return false;
+            }
+            return true;
+        }
+
+        return true;
+    }
+
+    // 🔹 행사 시간이 지났으면 종료
     private String computeEventStatus(EventData e) {
         String baseStatus = (e.status == null || e.status.isEmpty()) ? "진행중" : e.status;
 
@@ -294,8 +312,7 @@ public class EventDetailFrame extends JFrame {
         p.add(l);
     }
 
-    // 이하 나머지 메서드는 그대로 -----------------------
-
+    // ================= 비밀코드 팝업 =================
     private void showSecretCodeDialog(JLabel slotsLabel, JLabel statusLabel, JButton applyButton) {
         JDialog dialog = new JDialog(this, "비밀코드 입력", true);
         dialog.setSize(450, 300);
@@ -313,6 +330,7 @@ public class EventDetailFrame extends JFrame {
         closeBtn.setBounds(410, 20, 20, 20);
         closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         closeBtn.addMouseListener(new MouseAdapter() {
+            @Override
             public void mouseClicked(MouseEvent e) { dialog.dispose(); }
         });
         panel.add(closeBtn);
@@ -339,6 +357,7 @@ public class EventDetailFrame extends JFrame {
 
             final int index = i;
             field.addKeyListener(new KeyAdapter() {
+                @Override
                 public void keyTyped(KeyEvent e) {
                     if (field.getPassword().length >= 1) {
                         e.consume();
@@ -346,6 +365,7 @@ public class EventDetailFrame extends JFrame {
                     }
                 }
             });
+
             codeFields[i] = field;
             codePanel.add(field);
         }
@@ -361,8 +381,9 @@ public class EventDetailFrame extends JFrame {
         confirmBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         confirmBtn.addActionListener(e -> {
             String inputCode = "";
-            for (JPasswordField field : codeFields)
+            for (JPasswordField field : codeFields) {
                 inputCode += new String(field.getPassword());
+            }
 
             if (inputCode.equals(eventData.secretCode)) {
                 dialog.dispose();
@@ -376,6 +397,7 @@ public class EventDetailFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    // ================= 실제 신청 처리 =================
     private void applyEvent(JLabel slotsLabel, JLabel statusLabel, JButton applyButton) {
         boolean success = eventData.addRecipient(userName, userId, "O");
 
@@ -396,6 +418,7 @@ public class EventDetailFrame extends JFrame {
         }
     }
 
+    // ================= 공통 팝업 / 로그아웃 =================
     private void showSimplePopup(String title, String message) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setSize(400, 250);
@@ -459,7 +482,6 @@ public class EventDetailFrame extends JFrame {
         yesBtn.setBounds(60, 150, 120, 45);
         yesBtn.addActionListener(e -> {
             dialog.dispose();
-            UserManager.logout();
             new LoginFrame();
             dispose();
         });
@@ -478,6 +500,7 @@ public class EventDetailFrame extends JFrame {
         dialog.setVisible(true);
     }
 
+    // ================= 공통 컴포넌트 =================
     private JPanel createPopupPanel() {
         return new JPanel() {
             @Override
@@ -504,17 +527,19 @@ public class EventDetailFrame extends JFrame {
 
         if (!isActive) {
             btn.addMouseListener(new MouseAdapter() {
+                @Override
                 public void mouseEntered(MouseEvent e) { btn.setBackground(HIGHLIGHT_YELLOW); }
-                public void mouseExited (MouseEvent e)  { btn.setBackground(NAV_BG); }
+                @Override
+                public void mouseExited (MouseEvent e) { btn.setBackground(NAV_BG); }
+                @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (text.equals("간식행사") || text.equals("과행사")) return;
+                    if (text.equals("과행사")) return;
 
-                    if (text.equals("물품대여"))      { new ItemListFrame();   dispose(); }
-                    else if (text.equals("공간대여")) { new SpaceRentFrame();  dispose(); }
-                    else if (text.equals("마이페이지")) { new MyPageFrame();   dispose(); }
-                    else if (text.equals("커뮤니티"))  { new CommunityFrame(); dispose(); }
-                    else if (text.equals("빈 강의실")) { new EmptyClassFrame();dispose(); }
-                    else if (text.equals("서울여대 꿀단지")) { new MainFrame(); dispose(); }
+                    if (text.equals("물품대여"))        { new ItemListFrame();   dispose(); }
+                    else if (text.equals("공간대여"))   { new SpaceRentFrame();  dispose(); }
+                    else if (text.equals("마이페이지")) { new MyPageFrame();    dispose(); }
+                    else if (text.equals("커뮤니티"))   { new CommunityFrame();  dispose(); }
+                    else if (text.equals("빈 강의실"))  { new EmptyClassFrame(); dispose(); }
                     else { showSimplePopup("알림", "[" + text + "] 화면은 준비 중입니다."); }
                 }
             });
@@ -526,13 +551,22 @@ public class EventDetailFrame extends JFrame {
         private int   radius;
         private Color color;
         private int   thickness;
+
         public RoundedBorder(int r, Color c, int t) {
-            radius = r; color = c; thickness = t;
+            radius = r;
+            color = c;
+            thickness = t;
         }
+
+        @Override
         public Insets getBorderInsets(Component c) {
             return new Insets(radius/2, radius/2, radius/2, radius/2);
         }
+
+        @Override
         public boolean isBorderOpaque() { return false; }
+
+        @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
             Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);

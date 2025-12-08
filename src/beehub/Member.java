@@ -10,6 +10,7 @@ public class Member {
     private String major;        // 전공
     private String phone;        // 전화번호
     private String isFeePaid;    // 회비 납부 여부 ("Y"/"N")
+    private String deptFeeYn; 
     private int point;           // 포인트
     private String grade;        // 등급 (일벌/꿀벌/여왕벌 등)
     private String penaltyDate;  // 페널티 날짜 문자열
@@ -30,6 +31,7 @@ public class Member {
         this.major = major;
         this.phone = phone;
         this.isFeePaid = isFeePaid;
+        this.deptFeeYn = deptFeeYn;
         this.point = point;
         this.grade = grade;
         this.penaltyDate = penaltyDate;
@@ -132,4 +134,6 @@ public class Member {
     public void setRole(String role) {
         this.role = role;
     }
+    public String getDeptFeeYn() { return deptFeeYn; }
+    public void setDeptFeeYn(String deptFeeYn) { this.deptFeeYn = deptFeeYn; }
 }

@@ -1,3 +1,4 @@
+// 파일명: EventManager.java
 package council;
 
 import beehub.DBUtil;
@@ -14,22 +15,21 @@ public class EventManager {
     public static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy.MM.dd (E) HH:mm");
 
- // =========================
-//  회비 조건 (기존 코드 호환)
-// =========================
-public enum FeeType {
-    NONE("누구나 참여 가능"),
-    SCHOOL("학교 학생회비 납부자"),
-    DEPT("과 학생회비 납부자");
+    // =========================
+    //  회비 조건
+    // =========================
+    public enum FeeType {
+        NONE("누구나 참여 가능"),
+        SCHOOL("학교 학생회비 납부자"),
+        DEPT("과 학생회비 납부자");
 
-    private final String label;
-    FeeType(String label) { this.label = label; }
-    public String getLabel() { return label; }
-}
-
+        private final String label;
+        FeeType(String label) { this.label = label; }
+        public String getLabel() { return label; }
+    }
 
     // =========================
-    //  명단 DTO (기존 코드용)
+    //  명단 DTO
     // =========================
     public static class Recipient {
         public String name;
@@ -42,7 +42,6 @@ public enum FeeType {
             this.paidFlag = paidFlag;
         }
     }
-    
 
     // =========================
     //  행사 데이터 DTO
@@ -60,7 +59,7 @@ public enum FeeType {
         public int currentCount;
         public String secretCode;
         public String description;
-        public String status;               // "진행중" / "신청마감" / "종료"
+        public String status;               // "진행중" / "신청마감" / "종료" / "삭제"
         public String targetDept;           // target_major
         public String ownerHakbun;          // 주최 학생회 ID
         public LocalDateTime startDateTime;
@@ -75,14 +74,7 @@ public enum FeeType {
             return applyStart.format(DATE_FMT) + " ~ " + applyEnd.format(DATE_FMT);
         }
 
-        /**
-         * 신청 처리
-         * - DB에 event_participation INSERT
-         * - events.remaining_quantity 감소
-         * - currentCount 갱신
-         * - ACTIVITY(과행사)는 중복 신청 방지
-         * @return true이면 신청 성공, false이면 실패(중복 or 정원 초과 등)
-         */
+        // 신청 처리 (명단 추가)
         public boolean addRecipient(String name, String hakbun, String paidFlag) {
             boolean ok = EventManager.insertApply(this, hakbun);
             if (ok) {
@@ -93,7 +85,7 @@ public enum FeeType {
     }
 
     // =========================
-    //  참여 인원 카운트 (명단과 동일 기준)
+    //  참여 인원 카운트
     // =========================
     private static int getParticipantCount(int eventId) {
         String sql = "SELECT COUNT(*) FROM event_participation WHERE event_id = ?";
@@ -136,17 +128,19 @@ public enum FeeType {
 
         int total  = rs.getInt("total_quantity");
         int remain = rs.getInt("remaining_quantity");
-        d.totalCount   = total;
+        d.totalCount = total;
 
-        // 🔥 인원은 event_participation 레코드 수로 계산 (명단과 동일)
+        // 인원은 event_participation 레코드 수로 계산
         d.currentCount = getParticipantCount(d.eventId);
 
         d.secretCode  = rs.getString("secret_code");
         d.description = rs.getString("description");
 
-        String dbStatus = rs.getString("status"); // SCHEDULED / PROGRESS / CLOSED
+        String dbStatus = rs.getString("status"); // SCHEDULED / PROGRESS / CLOSED / DELETED
         if ("CLOSED".equalsIgnoreCase(dbStatus)) {
             d.status = "종료";
+        } else if ("DELETED".equalsIgnoreCase(dbStatus)) {
+            d.status = "삭제";
         } else if ("PROGRESS".equalsIgnoreCase(dbStatus)) {
             d.status = "진행중";
         } else {
@@ -156,8 +150,21 @@ public enum FeeType {
         d.targetDept  = rs.getString("target_major");
         d.ownerHakbun = rs.getString("owner_hakbun");
 
-        // 회비 조건은 아직 DB 컬럼이 없으니 기본값 유지
-        d.requiredFee = FeeType.NONE;
+        // 회비 조건 컬럼 읽기 (없으면 NONE)
+        String feeCode = null;
+        try {
+            feeCode = rs.getString("required_fee");
+        } catch (SQLException ignore) { }
+
+        if (feeCode == null || feeCode.isEmpty() || "NONE".equalsIgnoreCase(feeCode)) {
+            d.requiredFee = FeeType.NONE;
+        } else if ("SCHOOL".equalsIgnoreCase(feeCode)) {
+            d.requiredFee = FeeType.SCHOOL;
+        } else if ("DEPT".equalsIgnoreCase(feeCode)) {
+            d.requiredFee = FeeType.DEPT;
+        } else {
+            d.requiredFee = FeeType.NONE;
+        }
 
         return d;
     }
@@ -172,6 +179,7 @@ public enum FeeType {
 
         String sql = "SELECT * FROM events " +
                      "WHERE owner_hakbun = ? " +
+                     "  AND (status IS NULL OR status <> 'DELETED') " +
                      "ORDER BY event_date DESC";
 
         try (Connection conn = DBUtil.getConnection();
@@ -190,11 +198,14 @@ public enum FeeType {
         return list;
     }
 
-    /** 전체 행사 목록 (학생 메인 등에서 사용) */
+    /** 전체 행사 목록 (학생 메인 등에서 사용) – 삭제된 행사 제외 */
     public static List<EventData> getAllEvents() {
         List<EventData> list = new ArrayList<>();
 
-        String sql = "SELECT * FROM events ORDER BY event_date DESC";
+        String sql =
+                "SELECT * FROM events " +
+                "WHERE status IS NULL OR status <> 'DELETED' " +
+                "ORDER BY event_date DESC";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -210,10 +221,10 @@ public enum FeeType {
     }
 
     /**
-     * ✅ 특정 학과 학생이 보는 "과 행사" 목록
-     *  - event_type = 'ACTIVITY' (과행사)
-     *  - target_major = 내 학과  OR  '전체' / 'ALL' 인 행사만
-     *  → 다른 학과 전용 과행사는 여기서 걸러짐
+     * 특정 학과 학생이 보는 "과 행사" 목록
+     *  - event_type = 'ACTIVITY'
+     *  - target_major = 내 학과 OR '전체' / 'ALL' / NULL / ''
+     *  - 삭제된 행사 제외
      */
     public static List<EventData> getDeptEventsForStudent(String major) {
         List<EventData> list = new ArrayList<>();
@@ -221,6 +232,7 @@ public enum FeeType {
         String sql =
             "SELECT * FROM events " +
             "WHERE event_type = 'ACTIVITY' " +
+            "  AND (status IS NULL OR status <> 'DELETED') " +
             "  AND (" +
             "       target_major = ? " +
             "    OR target_major = '전체' " +
@@ -259,12 +271,24 @@ public enum FeeType {
         if (remain < 0) remain = 0;
 
         String dbStatus;
-        if ("종료".equals(d.status)) dbStatus = "CLOSED";
+        if ("삭제".equals(d.status)) dbStatus = "DELETED";
+        else if ("종료".equals(d.status)) dbStatus = "CLOSED";
         else if ("진행중".equals(d.status)) dbStatus = "PROGRESS";
         else dbStatus = "SCHEDULED";
 
         if (d.eventType == null || d.eventType.isEmpty()) {
             d.eventType = "SNACK";
+        }
+
+        // FeeType → DB 코드
+        String feeCode = "NONE";
+        if (d.requiredFee != null) {
+            switch (d.requiredFee) {
+                case SCHOOL: feeCode = "SCHOOL"; break;
+                case DEPT:   feeCode = "DEPT";   break;
+                case NONE:
+                default:     feeCode = "NONE";   break;
+            }
         }
 
         try (Connection conn = DBUtil.getConnection()) {
@@ -274,21 +298,18 @@ public enum FeeType {
                         "event_type, event_name, event_date, location, " +
                         "apply_start, apply_end, total_quantity, remaining_quantity, " +
                         "secret_code, description, status, target_major, owner_hakbun, " +
-                        "created_at, updated_at" +
-                        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                        "required_fee, created_at, updated_at" +
+                        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
 
                 try (PreparedStatement pstmt =
                              conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
                     pstmt.setString(1, d.eventType);
                     pstmt.setString(2, d.title);
-                    pstmt.setTimestamp(3,
-                            d.date != null ? Timestamp.valueOf(d.date) : null);
+                    pstmt.setTimestamp(3, d.date != null ? Timestamp.valueOf(d.date) : null);
                     pstmt.setString(4, d.location);
-                    pstmt.setTimestamp(5,
-                            d.applyStart != null ? Timestamp.valueOf(d.applyStart) : null);
-                    pstmt.setTimestamp(6,
-                            d.applyEnd != null ? Timestamp.valueOf(d.applyEnd) : null);
+                    pstmt.setTimestamp(5, d.applyStart != null ? Timestamp.valueOf(d.applyStart) : null);
+                    pstmt.setTimestamp(6, d.applyEnd != null ? Timestamp.valueOf(d.applyEnd) : null);
                     pstmt.setInt(7, d.totalCount);
                     pstmt.setInt(8, remain);
                     pstmt.setString(9, d.secretCode);
@@ -296,6 +317,7 @@ public enum FeeType {
                     pstmt.setString(11, dbStatus);
                     pstmt.setString(12, d.targetDept);
                     pstmt.setString(13, d.ownerHakbun);
+                    pstmt.setString(14, feeCode);
 
                     pstmt.executeUpdate();
 
@@ -309,19 +331,16 @@ public enum FeeType {
                         "event_type=?, event_name=?, event_date=?, location=?, " +
                         "apply_start=?, apply_end=?, total_quantity=?, remaining_quantity=?, " +
                         "secret_code=?, description=?, status=?, target_major=?, owner_hakbun=?, " +
-                        "updated_at = NOW() " +
+                        "required_fee=?, updated_at = NOW() " +
                         "WHERE event_id=?";
 
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     pstmt.setString(1, d.eventType);
                     pstmt.setString(2, d.title);
-                    pstmt.setTimestamp(3,
-                            d.date != null ? Timestamp.valueOf(d.date) : null);
+                    pstmt.setTimestamp(3, d.date != null ? Timestamp.valueOf(d.date) : null);
                     pstmt.setString(4, d.location);
-                    pstmt.setTimestamp(5,
-                            d.applyStart != null ? Timestamp.valueOf(d.applyStart) : null);
-                    pstmt.setTimestamp(6,
-                            d.applyEnd != null ? Timestamp.valueOf(d.applyEnd) : null);
+                    pstmt.setTimestamp(5, d.applyStart != null ? Timestamp.valueOf(d.applyStart) : null);
+                    pstmt.setTimestamp(6, d.applyEnd != null ? Timestamp.valueOf(d.applyEnd) : null);
                     pstmt.setInt(7, d.totalCount);
                     pstmt.setInt(8, remain);
                     pstmt.setString(9, d.secretCode);
@@ -329,7 +348,8 @@ public enum FeeType {
                     pstmt.setString(11, dbStatus);
                     pstmt.setString(12, d.targetDept);
                     pstmt.setString(13, d.ownerHakbun);
-                    pstmt.setInt(14, d.eventId);
+                    pstmt.setString(14, feeCode);
+                    pstmt.setInt(15, d.eventId);
 
                     pstmt.executeUpdate();
                 }
@@ -343,10 +363,6 @@ public enum FeeType {
     //  신청 INSERT + 중복 체크
     // =========================
 
-    /**
-     * 신청 처리
-     * @return true: 성공 / false: 중복신청 또는 잔여 수량 없음
-     */
     private static boolean insertApply(EventData event, String hakbun) {
 
         String sqlCheck =
@@ -376,15 +392,13 @@ public enum FeeType {
                  PreparedStatement p2 = conn.prepareStatement(sqlUpdate);
                  PreparedStatement p3 = conn.prepareStatement(sqlSelect)) {
 
-                // 과행사(ACTIVITY)에만 중복 체크 (현재는 모두 같은 로직)
-                {
-                    pCheck.setInt(1, event.eventId);
-                    pCheck.setString(2, hakbun);
-                    try (ResultSet rs = pCheck.executeQuery()) {
-                        if (rs.next() && rs.getInt(1) > 0) {
-                            conn.rollback();
-                            return false; // 이미 신청함
-                        }
+                // 중복 체크
+                pCheck.setInt(1, event.eventId);
+                pCheck.setString(2, hakbun);
+                try (ResultSet rs = pCheck.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        conn.rollback();
+                        return false; // 이미 신청함
                     }
                 }
 
@@ -401,18 +415,17 @@ public enum FeeType {
                     return false; // 잔여 수량 없음
                 }
 
-                // 3) 현재/잔여 수량 다시 조회해서 EventData에 반영
+                // 3) 현재/잔여 수량 다시 조회
                 p3.setInt(1, event.eventId);
                 try (ResultSet rs = p3.executeQuery()) {
                     if (rs.next()) {
                         int total  = rs.getInt("total_quantity");
                         int remain = rs.getInt("remaining_quantity");
-                        event.totalCount   = total;
-                        // currentCount 는 명단 기준으로 다시 계산
+                        event.totalCount = total;
                     }
                 }
 
-                // 🔥 신청 후에도 currentCount 는 participation 전체 레코드 수로 맞춘다
+                // 현재 인원 카운트 동기화
                 event.currentCount = getParticipantCount(event.eventId);
 
                 conn.commit();
@@ -432,11 +445,13 @@ public enum FeeType {
     }
 
     // =========================
-    //  삭제 (과학생회에서 행사 삭제)
+    //  삭제 (과학생회에서 행사 삭제) - 소프트 삭제
     // =========================
     public static void deleteEvent(int eventId) {
         String sql1 = "DELETE FROM event_participation WHERE event_id = ?";
-        String sql2 = "DELETE FROM events               WHERE event_id = ?";
+        String sql2 = "UPDATE events " +
+                      "SET status = 'DELETED', updated_at = NOW() " +
+                      "WHERE event_id = ?";
 
         try (Connection conn = DBUtil.getConnection()) {
             conn.setAutoCommit(false);
@@ -444,9 +459,11 @@ public enum FeeType {
             try (PreparedStatement p1 = conn.prepareStatement(sql1);
                  PreparedStatement p2 = conn.prepareStatement(sql2)) {
 
+                // 1) 참가 내역 삭제
                 p1.setInt(1, eventId);
                 p1.executeUpdate();
 
+                // 2) 행사 상태를 DELETED 로 변경
                 p2.setInt(1, eventId);
                 p2.executeUpdate();
 

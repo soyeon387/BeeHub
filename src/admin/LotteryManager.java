@@ -8,6 +8,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 
 public class LotteryManager {
 
@@ -321,21 +323,26 @@ public class LotteryManager {
     }
 
     // ===================== 회차 추가 =====================
+ // ===================== 회차 추가 =====================
 
     /**
      * 관리자가 새 추첨 회차를 등록할 때 사용.
      *
-     * @param titleOnly   화면에 보일 회차 이름(예: "꿀단지 이용 감사 추첨")
-     * @param prize       경품 이름
-     * @param count       당첨 인원 수
-     * @param annDate     발표일 (yyyy-MM-dd)
-     * @param appPeriod   응모기간 문자열 ("2025-04-01 ~ 2025-04-10" or "-")
-     * @param loc         수령 장소
-     * @param pickPeriod  수령기간 문자열
+     * @param titleOnly    회차 제목
+     * @param prize        경품 이름
+     * @param count        당첨 인원 수
+     * @param annDateStr   발표일 (yyyy-MM-dd)
+     * @param appStartStr  응모 시작 일시 (yyyy-MM-dd HH:mm 또는 HH:mm:ss)
+     * @param appEndStr    응모 마감 일시
+     * @param loc          수령 장소
+     * @param pickStartStr 수령 시작 일시
+     * @param pickEndStr   수령 마감 일시
      */
     public static boolean addRound(String titleOnly, String prize, int count,
-                                   String annDate, String appPeriod,
-                                   String loc, String pickPeriod) {
+                                   String annDateStr,
+                                   String appStartStr, String appEndStr,
+                                   String loc,
+                                   String pickStartStr, String pickEndStr) {
 
         String sql =
                 "INSERT INTO lottery_round " +
@@ -351,43 +358,31 @@ public class LotteryManager {
             conn = DBUtil.getConnection();
             pstmt = conn.prepareStatement(sql);
 
-            // DB에는 "1회차: ..." 대신 그냥 제목만 넣어두기로.
+            // 1) 제목/경품/인원
             pstmt.setString(1, titleOnly);
             pstmt.setString(2, prize);
             pstmt.setInt(3, count);
 
-            // 발표일
-            LocalDate ann = LocalDate.parse(annDate);
+            // 2) 발표일 (DATE)  → "yyyy-MM-dd"
+            LocalDate ann = LocalDate.parse(annDateStr);   // AdminLotteryFrame 에서 이미 yyyy-MM-dd 로 포맷해줌
             pstmt.setDate(4, Date.valueOf(ann));
 
-            // 응모기간
-            Timestamp appStartTs = null;
-            Timestamp appEndTs   = null;
-            String[] appRange = splitPeriod(appPeriod);
-            if (appRange != null) {
-                LocalDate s = LocalDate.parse(appRange[0]);
-                LocalDate e = LocalDate.parse(appRange[1]);
-                appStartTs = Timestamp.valueOf(LocalDateTime.of(s, java.time.LocalTime.MIDNIGHT));
-                appEndTs   = Timestamp.valueOf(LocalDateTime.of(e, java.time.LocalTime.MIDNIGHT));
-            }
-            pstmt.setTimestamp(5, appStartTs);
-            pstmt.setTimestamp(6, appEndTs);
+            // 3) 응모/수령 기간 (DATETIME)  → "yyyy-MM-dd HH:mm" 또는 "yyyy-MM-dd HH:mm:ss"
+            DateTimeFormatter dtFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm[:ss]");
 
-            // 수령 장소
+            LocalDateTime appStart  = LocalDateTime.parse(appStartStr, dtFmt);
+            LocalDateTime appEnd    = LocalDateTime.parse(appEndStr, dtFmt);
+            LocalDateTime pickStart = LocalDateTime.parse(pickStartStr, dtFmt);
+            LocalDateTime pickEnd   = LocalDateTime.parse(pickEndStr, dtFmt);
+
+            pstmt.setTimestamp(5, Timestamp.valueOf(appStart));
+            pstmt.setTimestamp(6, Timestamp.valueOf(appEnd));
+
+            // 4) 수령 장소
             pstmt.setString(7, loc);
 
-            // 수령기간
-            Timestamp pickStartTs = null;
-            Timestamp pickEndTs   = null;
-            String[] pickRange = splitPeriod(pickPeriod);
-            if (pickRange != null) {
-                LocalDate s = LocalDate.parse(pickRange[0]);
-                LocalDate e = LocalDate.parse(pickRange[1]);
-                pickStartTs = Timestamp.valueOf(LocalDateTime.of(s, java.time.LocalTime.MIDNIGHT));
-                pickEndTs   = Timestamp.valueOf(LocalDateTime.of(e, java.time.LocalTime.MIDNIGHT));
-            }
-            pstmt.setTimestamp(8, pickStartTs);
-            pstmt.setTimestamp(9, pickEndTs);
+            pstmt.setTimestamp(8, Timestamp.valueOf(pickStart));
+            pstmt.setTimestamp(9, Timestamp.valueOf(pickEnd));
 
             int rows = pstmt.executeUpdate();
             return rows > 0;

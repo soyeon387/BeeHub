@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class SpaceRentFrame extends JFrame {
 
@@ -492,15 +494,28 @@ public class SpaceRentFrame extends JFrame {
             return;
         }
 
+        boolean ok;
         try {
-            // 🔥 여기! peopleCount 함께 넘기기
-            reservationDAO.insertReservation(spaceId, date, selectedHours, myHakbun, totalPeople);
+            // 🔥 예약 시도 (true/false 결과 확인)
+            ok = reservationDAO.insertReservation(spaceId, date, selectedHours, myHakbun, totalPeople);
         } catch (Exception ex) {
             ex.printStackTrace();
             showSimplePopup("오류", "예약 저장 중 오류가 발생했습니다.");
             return;
         }
 
+        // 예약 실패 (중복 시간대 포함 또는 DB 오류)
+        if (!ok) {
+            showSimplePopup("예약 실패",
+                    "이미 예약된 시간대가 포함되어 있거나\n" +
+                    "예약 처리 중 오류가 발생했습니다.\n" +
+                    "시간대를 다시 확인해 주세요.");
+            // UI에서 시간 버튼 상태도 다시 갱신
+            updateTimeSlotAvailability();
+            return;
+        }
+
+        // ✅ 여기까지 왔으면 진짜로 INSERT 성공
         showSuccessPopup(spaceLabel, dateStr, timeStr, totalPeople);
         selectedTimeCount = 0;
         updateTimeSlotAvailability();
@@ -649,11 +664,24 @@ public class SpaceRentFrame extends JFrame {
 
         LocalDate date = LocalDate.of((Integer) y, (Integer) m, (Integer) d);
 
-        List<String> bookedTimes = reservationDAO.getBookedTimeSlots(spaceId, date);
+        List<String> bookedSlots = reservationDAO.getBookedTimeSlots(spaceId, date);
+
+        // DB에는 "10:00~11:00" 형식으로 저장되어 있으므로
+        // 시작 시간 "10:00"만 뽑아서 버튼 텍스트와 비교
+        Set<String> bookedStartTimes = new HashSet<>();
+        for (String slot : bookedSlots) {
+            if (slot == null) continue;
+            String[] parts = slot.split("~");
+            if (parts.length >= 1) {
+                String start = parts[0].trim();   // "10:00"
+                bookedStartTimes.add(start);
+            }
+        }
 
         for (JToggleButton btn : timeButtons) {
-            String time = btn.getText();
-            if (bookedTimes.contains(time)) {
+            String time = btn.getText();   // "10:00"
+
+            if (bookedStartTimes.contains(time)) {
                 btn.setEnabled(false);
                 btn.setBackground(BTN_DISABLED_BG);
                 btn.setForeground(BTN_DISABLED_FG);

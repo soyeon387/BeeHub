@@ -207,8 +207,8 @@ public class AdminRentManageFrame extends JFrame {
                         PointService.addPoint(renterId, -50);
 
                         showMsgPopup("연체 확인",
-                                "연체 반납 확인되었습니다.\n" + overdueDays +
-                                        "일간 대여 정지 패널티와 -50꿀이 부여됩니다.");
+                                "연체 반납 확인되었습니다.\n" +
+                                        "50꿀 차감");
                     } else {
                         // 제때 반납: +10꿀
                         PointService.addPoint(renterId, +10);

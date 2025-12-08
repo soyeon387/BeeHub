@@ -5,7 +5,9 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SpaceReservationDAO {
 
@@ -17,8 +19,8 @@ public class SpaceReservationDAO {
         public int spaceId;
         public String roomName;
         public LocalDate reserveDate;
-        public String timeSlot;   // "09:00~10:00" 또는 "09:00~12:00"
-        public String status;     // DB 상태 그대로 (RESERVED, CANCELED, NO_SHOW 등)
+        public String timeSlot;   // "09:00~10:00"
+        public String status;     // RESERVED, CANCELED, NO_SHOW ...
 
         public ReservationSummary(int reservationId,
                                   int spaceId,
@@ -49,6 +51,7 @@ public class SpaceReservationDAO {
 
     // ======================================================
     // 1) 마이페이지 - 로그인한 사용자의 공간 대여 기록 조회
+    //    👉 모든 room_type 다 가져오도록 필터 제거
     // ======================================================
     public List<ReservationSummary> getReservationsByUser(String hakbun) {
         List<ReservationSummary> list = new ArrayList<>();
@@ -63,7 +66,6 @@ public class SpaceReservationDAO {
             "FROM space_reservation r " +
             "JOIN space_info s ON r.space_id = s.space_id " +
             "WHERE r.hakbun = ? " +
-            "  AND s.room_type IN ('세미나실', '실습실') " +
             "ORDER BY r.reserve_date DESC, r.time_slot";
 
         try (Connection conn = DBUtil.getConnection();
@@ -132,7 +134,9 @@ public class SpaceReservationDAO {
 
     // ======================================================
     // 3) 예약 INSERT (SpaceRentFrame에서 사용)
-    //    selectedHours: 예) [9,10,11] 이런 시간 리스트
+    //    selectedHours: 예) [10,11,12]
+    //    👉 각 시간마다 "10:00~11:00", "11:00~12:00", "12:00~13:00"
+    //       이렇게 각각 한 줄씩 INSERT (더 이상 10~13으로 묶지 않음)
     // ======================================================
     public boolean insertReservation(Integer spaceId,
                                      LocalDate date,
@@ -144,37 +148,34 @@ public class SpaceReservationDAO {
         // 시간 정렬
         Collections.sort(selectedHours);
 
-        // 연속 구간을 "HH:00~HH:00" 형태로 묶기
+        // 1시간 단위로 slot 생성
         List<String> timeSlots = new ArrayList<>();
+        for (int hour : selectedHours) {
+            String slot = String.format("%02d:00~%02d:00", hour, hour + 1);
+            timeSlots.add(slot);
+        }
 
-        int start = selectedHours.get(0);
-        int prev  = start;
+        // ---------- ✅ 중복 예약 체크 ----------
+        List<String> booked = getBookedTimeSlots(spaceId, date);
+        Set<String> bookedSet = new HashSet<>(booked);
 
-        for (int i = 1; i < selectedHours.size(); i++) {
-            int cur = selectedHours.get(i);
-            if (cur == prev + 1) {
-                // 연속
-                prev = cur;
-            } else {
-                // 끊겼으므로 지금까지 구간 하나 확정
-                String slot = String.format("%02d:00~%02d:00", start, prev + 1);
-                timeSlots.add(slot);
-                start = cur;
-                prev  = cur;
+        for (String slot : timeSlots) {
+            if (bookedSet.contains(slot)) {
+                System.out.println("[공간예약] 이미 예약된 시간과 겹칩니다: " + slot);
+                return false;
             }
         }
-        // 마지막 구간 추가
-        String lastSlot = String.format("%02d:00~%02d:00", start, prev + 1);
-        timeSlots.add(lastSlot);
+        // -----------------------------------
 
         String sql =
-        	    "INSERT INTO space_reservation " +
-        	    "(space_id, reserve_date, time_slot, hakbun, people_count, status, created_at) " +
-        	    "VALUES (?, ?, ?, ?, ?, 'RESERVED', NOW())";
-
+            "INSERT INTO space_reservation " +
+            "(space_id, reserve_date, time_slot, hakbun, people_count, status, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, 'RESERVED', NOW())";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            conn.setAutoCommit(false);
 
             for (String slot : timeSlots) {
                 pstmt.setInt(1, spaceId);
@@ -186,7 +187,8 @@ public class SpaceReservationDAO {
             }
 
             int[] results = pstmt.executeBatch();
-            // 하나라도 0인게 있으면 실패로 간주할 수도 있지만, 일단 true 리턴
+            conn.commit();
+
             return results.length > 0;
 
         } catch (SQLException e) {
@@ -195,37 +197,34 @@ public class SpaceReservationDAO {
         }
     }
 
- // ======================================================
- // 4) 예약 취소 (마이페이지에서 사용)
- // ======================================================
- public boolean cancelReservation(int reservationId, String hakbun) {
+    // ======================================================
+    // 4) 예약 취소 (마이페이지에서 사용)
+    // ======================================================
+    public boolean cancelReservation(int reservationId, String hakbun) {
 
-     String sql =
-         "UPDATE space_reservation " +
-         "SET status = 'CANCELED' " +      // 사용자 취소
-         "WHERE reservation_id = ? " +
-         "  AND hakbun = ?";               // 해당 회원의 예약만 취소 가능
+        String sql =
+            "UPDATE space_reservation " +
+            "SET status = 'CANCELED' " +
+            "WHERE reservation_id = ? " +
+            "  AND hakbun = ?";
 
-     try (Connection conn = DBUtil.getConnection();
-          PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-         pstmt.setInt(1, reservationId);
-         pstmt.setString(2, hakbun);
+            pstmt.setInt(1, reservationId);
+            pstmt.setString(2, hakbun);
 
-         int updated = pstmt.executeUpdate();
-         return updated > 0;
+            int updated = pstmt.executeUpdate();
+            return updated > 0;
 
-     } catch (SQLException e) {
-         e.printStackTrace();
-         return false;
-     }
- }
-
-
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     // ======================================================
     // 5) 해당 날짜에 사용자가 이미 예약한 시간(시간 수) 계산
-    //    (하루 최대 사용시간 제한 등에 사용)
     // ======================================================
     public int getUsedHoursForUser(String hakbun, LocalDate date) {
         int totalHours = 0;
@@ -246,15 +245,13 @@ public class SpaceReservationDAO {
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     String slot = rs.getString("time_slot");
-                    // "09:00~11:00" → 2시간
                     try {
                         String[] parts = slot.split("~");
                         LocalTime start = LocalTime.parse(parts[0].trim());
                         LocalTime end   = LocalTime.parse(parts[1].trim());
                         int diff = end.getHour() - start.getHour();
                         if (diff > 0) totalHours += diff;
-                    } catch (Exception ignore) {
-                    }
+                    } catch (Exception ignore) {}
                 }
             }
 

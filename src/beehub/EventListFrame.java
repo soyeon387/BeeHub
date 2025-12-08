@@ -173,11 +173,23 @@ public class EventListFrame extends JFrame {
         contentPanel.add(scrollPane);
     }
 
-    /** 🔹 드롭다운 선택 + 상태(종료 제외) 기준으로 행사 로드 */
+    /** 🔹 드롭다운 선택 + 상태(종료/삭제 제외) 기준으로 행사 로드 */
     private void loadEvents() {
         String selectedCouncil = (String) councilDropdown.getSelectedItem();
         if (selectedCouncil == null || selectedCouncil.startsWith("───")) {
             selectedCouncil = "전체";
+        }
+
+        // ✅ UI에서 보이는 이름 → DB target_dept 값으로 매핑
+        //    - "총학생회"  → "ALL"
+        //    - 나머지 학과들은 DB에 저장된 이름과 동일하다고 가정
+        String filterTarget = null; // null이면 전체
+        if (!"전체".equals(selectedCouncil)) {
+            if ("총학생회".equals(selectedCouncil)) {
+                filterTarget = "ALL";          // 🔥 총학생회는 DB에서 ALL로 저장
+            } else {
+                filterTarget = selectedCouncil.trim();   // 학과명 그대로 비교
+            }
         }
 
         eventListPanel.removeAll();
@@ -188,7 +200,9 @@ public class EventListFrame extends JFrame {
 
         for (EventData event : events) {
 
-            // 1) 상태 계산 (간식/과행사 분리)
+            if ("삭제".equals(event.status)) continue;
+
+            // 1) 상태 계산
             String status = computeEventStatus(event);
             event.status = status;
 
@@ -196,11 +210,10 @@ public class EventListFrame extends JFrame {
             if ("종료".equals(status)) continue;
 
             // 3) 학생회(학과) 필터
-            if (!"전체".equals(selectedCouncil)) {
+            if (filterTarget != null) {                   // 전체가 아닐 때만 필터
                 String target = event.targetDept != null ? event.targetDept.trim() : "";
-                if (target.isEmpty() || !target.equals(selectedCouncil)) {
-                    continue;
-                }
+                if (target.isEmpty()) continue;
+                if (!target.equals(filterTarget)) continue;
             }
 
             addEventCard(event, yPos);
@@ -223,6 +236,12 @@ public class EventListFrame extends JFrame {
 
     /** 🔹 간식 행사 / 과 행사(참여형) 상태 계산 */
     private String computeEventStatus(EventData e) {
+
+        // 🔥 이미 '삭제'로 마킹된 건 그대로 유지
+        if ("삭제".equals(e.status)) {
+            return "삭제";
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         // 타입 판별
