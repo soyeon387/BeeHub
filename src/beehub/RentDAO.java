@@ -61,7 +61,6 @@ public class RentDAO {
         }
     }
 
-    // 2. 모든 대여 기록 조회 (getAllRentals)
  // 2. 모든 대여 기록 조회 (getAllRentals)
     public List<Rent> getAllRentals() {
         List<Rent> list = new ArrayList<>();
@@ -103,7 +102,6 @@ public class RentDAO {
 
     
     // 3. 사용자의 미반납 대여 건수 조회 (getCurrentRentalCount)
-    // ItemDetailFrame에서 PenaltyManager가 호출하던 로직을 DB에서 가져옴
     public int getCurrentRentalCount(String renterId) {
         Connection conn = null;
         PreparedStatement pstmt = null;

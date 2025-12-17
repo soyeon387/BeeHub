@@ -548,13 +548,22 @@ public class SpaceRentFrame extends JFrame {
 
         boolean ok;
         try {
-            // 🔥 예약 시도 (true/false 결과 확인)
+            // ✅ 공간대여 정지(7일 제한) 체크
+            if (SpacePenaltyManager.isBanned(myHakbun)) {
+                String until = SpacePenaltyManager.getBanDate(myHakbun); // "YYYY-MM-DD"
+                showSimplePopup("공간대여 제한",
+                        "경고 누적으로 " + until + "까지\n공간예약이 불가능합니다.");
+                return;
+            }
+
             ok = reservationDAO.insertReservation(spaceId, date, selectedHours, myHakbun, totalPeople);
+
         } catch (Exception ex) {
             ex.printStackTrace();
             showSimplePopup("오류", "예약 저장 중 오류가 발생했습니다.");
             return;
         }
+
 
         // 예약 실패 (중복 시간대 포함 또는 DB 오류)
         if (!ok) {
@@ -719,12 +728,12 @@ public class SpaceRentFrame extends JFrame {
         }
     }
 
-    // ===============================
-    // 시간 버튼 활성/비활성 (DB 기반)
+ // ===============================
+    // 시간 버튼 활성/비활성 (DB 기반 + 지난 시간 체크)
     // ===============================
     private void updateTimeSlotAvailability() {
 
-        // ✅ 아직 날짜 콤보박스가 만들어지기 전이면 그냥 리턴
+        // 콤보박스가 아직 준비 안 됐으면 리턴
         if (yearCombo == null || monthCombo == null || dayCombo == null) {
             return;
         }
@@ -740,12 +749,13 @@ public class SpaceRentFrame extends JFrame {
         Integer spaceId = spaceNameToId.get(selectedSpace);
         if (spaceId == null) return;
 
-        LocalDate date = LocalDate.of((Integer) y, (Integer) m, (Integer) d);
+        // 1. 날짜 정보 확인
+        LocalDate selectedDate = LocalDate.of((Integer) y, (Integer) m, (Integer) d);
+        LocalDate todayDate = LocalDate.now();
+        int currentHour = java.time.LocalTime.now().getHour(); // 현재 시간 (0~23)
 
-        List<String> bookedSlots = reservationDAO.getBookedTimeSlots(spaceId, date);
-
-        // DB에는 "10:00~11:00" 형식으로 저장되어 있으므로
-        // 시작 시간 "10:00"만 뽑아서 버튼 텍스트와 비교
+        // 2. DB에서 이미 예약된 시간 가져오기
+        List<String> bookedSlots = reservationDAO.getBookedTimeSlots(spaceId, selectedDate);
         Set<String> bookedStartTimes = new HashSet<>();
         for (String slot : bookedSlots) {
             if (slot == null) continue;
@@ -756,20 +766,42 @@ public class SpaceRentFrame extends JFrame {
             }
         }
 
+        // 3. 버튼 상태 업데이트
         for (JToggleButton btn : timeButtons) {
-            String time = btn.getText();   // "10:00"
+            String timeText = btn.getText();   // 예: "10:00"
+            int btnHour = Integer.parseInt(timeText.split(":")[0]); // 10
 
-            if (bookedStartTimes.contains(time)) {
+            boolean isBooked = bookedStartTimes.contains(timeText);
+            
+            // 🕒 [추가됨] 이미 지난 시간인지 확인
+            boolean isPast = false;
+            if (selectedDate.isBefore(todayDate)) {
+                // 과거 날짜면 모든 시간 비활성
+                isPast = true;
+            } else if (selectedDate.isEqual(todayDate)) {
+                // 오늘 날짜면, 현재 시간보다 이전(또는 같은) 시간 비활성
+                // 예: 지금 14:10이면 -> 14:00 버튼도 이미 시작했으므로 비활성
+                if (btnHour <= currentHour) {
+                    isPast = true;
+                }
+            }
+
+            // 예약됨 OR 지난 시간 -> 비활성화 (회색)
+            if (isBooked || isPast) {
                 btn.setEnabled(false);
-                btn.setBackground(BTN_DISABLED_BG);
+                btn.setBackground(BTN_DISABLED_BG); // 회색 배경
                 btn.setForeground(BTN_DISABLED_FG);
                 btn.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+                
+                // 만약 선택되어 있었다면 선택 해제
                 if (btn.isSelected()) {
                     btn.setSelected(false);
                     if (selectedTimeCount > 0) selectedTimeCount--;
                 }
             } else {
+                // 예약 가능 상태
                 btn.setEnabled(true);
+                // 선택 안 된 버튼은 기본 스타일로 복구
                 if (!btn.isSelected()) {
                     btn.setBackground(BTN_OFF_BG);
                     btn.setForeground(BTN_OFF_FG);

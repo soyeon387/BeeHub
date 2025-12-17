@@ -260,13 +260,14 @@ public class EventListFrame extends JFrame {
 
         if (!isSnack && !isActivity) isActivity = true;
 
-        LocalDateTime eventTime  = e.date;        
-        LocalDateTime applyStart = e.applyStart;  
-        LocalDateTime applyEnd   = e.applyEnd;    
+        LocalDateTime eventTime  = e.date;
+        LocalDateTime applyStart = e.applyStart;
+        LocalDateTime applyEnd   = e.applyEnd;
 
         int total   = e.totalCount;
         int current = e.currentCount;
 
+        // ✅ 간식행사: 기존 로직 유지 (신청 시작~종료시간 기준 + 정원 마감)
         if (isSnack) {
             LocalDateTime snackStart = (applyStart != null) ? applyStart : eventTime;
             LocalDateTime snackEnd   = applyEnd;
@@ -288,21 +289,27 @@ public class EventListFrame extends JFrame {
             }
         }
 
-        if (eventTime != null && now.isAfter(eventTime)) {
-            return "종료";
-        }
-        if (applyStart != null && now.isBefore(applyStart)) {
+        // ✅ 참여형(과행사): "행사일시(eventTime)"로 종료시키지 말고, "신청기간(applyStart~applyEnd)" 기준
+        // 신청 시작이 null이면 eventTime을 시작으로 대체(기존 데이터 호환)
+        LocalDateTime start = (applyStart != null) ? applyStart : eventTime;
+        LocalDateTime end   = applyEnd;
+
+        if (start != null && now.isBefore(start)) {
             return "신청 전";
         }
-        if (applyEnd != null && now.isAfter(applyEnd)) {
+
+        // 18:00까지 신청 가능하게 하려면 end "포함" 처리(= end와 같은 시각은 마감 아님)
+        if (end != null && now.isAfter(end)) {
             return "신청 마감";
         }
+
         if (total > 0 && current >= total) {
             return "신청 마감";
-        } else {
-            return "신청 중";
         }
+
+        return "신청 중";
     }
+
 
     private void addEventCard(EventData event, int y) {
         JPanel card = new JPanel();

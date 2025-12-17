@@ -23,6 +23,9 @@ public class EventDetailFrame extends JFrame {
     private static final Color ORANGE_CLOSED    = new Color(255, 200, 180);
     private static final Color GRAY_BTN         = new Color(180, 180, 180);
     private static final Color POPUP_BG         = new Color(255, 250, 205);
+    private static final Color GRAY_BEFORE = new Color(225, 225, 225); // 진행 전/신청 전
+    private static final Color RED_CLOSED  = new Color(255, 160, 160); // 신청 마감
+
 
     private static Font uiFont;
     static {
@@ -68,6 +71,13 @@ public class EventDetailFrame extends JFrame {
     }
 
     private void initUI() {
+    	System.out.println("[DEBUG] " + eventData.title
+    	        + " type=" + eventData.eventType
+    	        + " dbStatus=" + eventData.status
+    	        + " date=" + eventData.date
+    	        + " applyStart=" + eventData.applyStart
+    	        + " applyEnd=" + eventData.applyEnd);
+
         // ===== 헤더 =====
         JPanel headerPanel = new JPanel(null);
         headerPanel.setBounds(0, 0, 800, 80);
@@ -157,11 +167,24 @@ public class EventDetailFrame extends JFrame {
         statusLabel.setForeground(BROWN);
         statusLabel.setBounds(50, 70, 110, 35);
         statusLabel.setOpaque(true);
-        statusLabel.setBackground(
-                "신청마감".equals(computedStatus) || "신청 마감".equals(computedStatus) || "종료".equals(computedStatus)
-                        ? ORANGE_CLOSED
-                        : GREEN_PROGRESS
-        );
+        Color statusColor;
+        switch (computedStatus) {
+            case "진행 전":
+            case "신청 전":
+                statusColor = GRAY_BEFORE;   // ✅ 회색
+                break;
+
+            case "신청 마감":
+            case "신청마감":
+                statusColor = RED_CLOSED;    // ✅ 마감은 빨강(리스트랑 통일)
+                break;
+
+            default:
+                statusColor = GREEN_PROGRESS;
+                break;
+        }
+        statusLabel.setBackground(statusColor);
+
         statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
         contentPanel.add(statusLabel);
 
@@ -304,17 +327,48 @@ public class EventDetailFrame extends JFrame {
     }
 
     // 🔹 행사 시간이 지났으면 종료
+ // ✅ 상세화면 상태 계산: event_date(09:00)로 종료시키지 말고 apply_end(18:00) 기준
     private String computeEventStatus(EventData e) {
-        String baseStatus = (e.status == null || e.status.isEmpty()) ? "진행중" : e.status;
+        if (e == null) return "삭제";
+        if ("삭제".equals(e.status)) return "삭제";
 
-        if (e.date != null) {
-            LocalDateTime now = LocalDateTime.now();
-            if (e.date.isBefore(now)) {
-                return "종료";
-            }
+        LocalDateTime now = LocalDateTime.now();
+
+        String type = (e.eventType != null) ? e.eventType.trim() : "";
+        boolean isSnack = type.equalsIgnoreCase("SNACK") || type.contains("간식");
+
+        LocalDateTime eventTime  = e.date;
+        LocalDateTime applyStart = e.applyStart;
+        LocalDateTime applyEnd   = e.applyEnd;
+
+        int total   = e.totalCount;
+        int current = e.currentCount;
+
+        if (isSnack) {
+            LocalDateTime start = (applyStart != null) ? applyStart : eventTime;
+            LocalDateTime end   = applyEnd;
+
+            // end가 없을 때만 예외적으로 1시간짜리 처리(데이터 누락 방어)
+            if (end == null && start != null) end = start.plusHours(1);
+
+            if (end != null && now.isAfter(end)) return "종료";
+            if (start != null && now.isBefore(start)) return "진행 전";
+
+            if (total > 0 && current >= total) return "신청 마감";
+            return "진행 중";
         }
-        return baseStatus;
+
+        // 참여형도 신청기간 기준
+        LocalDateTime start = (applyStart != null) ? applyStart : eventTime;
+        LocalDateTime end   = applyEnd;
+
+        if (start != null && now.isBefore(start)) return "신청 전";
+        if (end != null && now.isAfter(end)) return "신청 마감";
+
+        if (total > 0 && current >= total) return "신청 마감";
+        return "신청 중";
     }
+
 
     private void addDetailLabel(JPanel p, String text, int y) {
         JLabel l = new JLabel(text);

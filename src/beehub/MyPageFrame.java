@@ -66,6 +66,7 @@ public class MyPageFrame extends JFrame {
     // 커뮤니티 DB 접근용 DAO
     private CommunityDAO communityDAO = new CommunityDAO();
     private ImageIcon heartIcon;
+    private ImageIcon queenIcon;
 
     private static Font uiFont;
 
@@ -215,13 +216,7 @@ public class MyPageFrame extends JFrame {
     private final int MENU_WIDTH = 170;
     private final int DETAIL_X = 20 + MENU_WIDTH + 10;
     private final int DETAIL_WIDTH = FRAME_WIDTH - DETAIL_X - 20;
-
-    // 더미데이터(테스트용)
-    /*private List<MyPagePost> dummyPosts;
-    private List<SpaceRentalItem> dummySpaceRentals;  
-    private List<EventParticipationItem> dummyEvents;
-    private List<RentalItem> dummyRentals;*/
-
+    
     // ✅ 실제 DB에서 불러온 공간 대여 기록 리스트
     private List<SpaceRentalItem> spaceRentalItems = new ArrayList<>();
 
@@ -244,23 +239,23 @@ public class MyPageFrame extends JFrame {
 
     private void loadImages() {
         try {
-            // 1. 꿀벌 아이콘 로드 (기존 코드 유지)
+            // 1. 꿀벌 아이콘
             ImageIcon originalBeeIcon = new ImageIcon("resource/img/login-bee.png");
             if (originalBeeIcon.getIconWidth() > 0) {
                 Image img = originalBeeIcon.getImage().getScaledInstance(18, 18, Image.SCALE_SMOOTH);
                 beeIcon = new ImageIcon(img);
             }
             
-            // 2. [추가] 하트 아이콘 로드 (CommunityFrame과 동일한 로직)
-            File f = new File("resource/img/heart.png");
-            if (f.exists()) {
-                ImageIcon origin = new ImageIcon(f.getAbsolutePath());
+            // 2. 하트 아이콘
+            File heartFile = new File("resource/img/heart.png");
+            if (heartFile.exists()) {
+                ImageIcon origin = new ImageIcon(heartFile.getAbsolutePath());
                 if (origin.getIconWidth() > 0) {
                     Image img = origin.getImage().getScaledInstance(15, 15, Image.SCALE_SMOOTH);
                     heartIcon = new ImageIcon(img);
                 }
             } else {
-                // 백업 경로 시도
+                // (백업 경로 시도 생략 가능)
                 java.net.URL heartUrl = getClass().getResource("/img/heart.png");
                 if (heartUrl != null) {
                     ImageIcon origin = new ImageIcon(heartUrl);
@@ -270,12 +265,31 @@ public class MyPageFrame extends JFrame {
                     }
                 }
             }
+
+            // 3. 👑 [추가] 여왕벌 아이콘 로드
+            File queenFile = new File("resource/img/queen.png");
+            if (queenFile.exists()) {
+                ImageIcon origin = new ImageIcon(queenFile.getAbsolutePath());
+                if (origin.getIconWidth() > 0) {
+                    // 여왕벌은 조금 더 크게 (22x22)
+                    Image img = origin.getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH);
+                    queenIcon = new ImageIcon(img);
+                }
+            } else {
+                java.net.URL queenUrl = getClass().getResource("/img/queen.png");
+                if (queenUrl != null) {
+                    ImageIcon origin = new ImageIcon(queenUrl);
+                    if (origin.getIconWidth() > 0) {
+                        Image img = origin.getImage().getScaledInstance(22, 22, Image.SCALE_SMOOTH);
+                        queenIcon = new ImageIcon(img);
+                    }
+                }
+            }
+
         } catch (Exception e) {
-            System.err.println("Failed to load images.");
             e.printStackTrace();
         }
     }
-
     // 더미 데이터 생성
     /*private void initDummyData() {
         LocalDate today = LocalDate.of(2025, 12, 1);
@@ -1114,7 +1128,11 @@ public class MyPageFrame extends JFrame {
         JLabel rankValueLabel = createLabel("");
         String rank = getRank(userPoint);
         rankValueLabel.setText(rank + " (" + userPoint + "/200)");
-        if (rank.startsWith("꿀벌") && beeIcon != null) {
+        if (rank.startsWith("여왕벌") && queenIcon != null) {
+            rankValueLabel.setIcon(queenIcon);
+            rankValueLabel.setHorizontalTextPosition(SwingConstants.RIGHT);
+            rankValueLabel.setIconTextGap(5);
+        } else if (rank.startsWith("꿀벌") && beeIcon != null) {
             rankValueLabel.setIcon(beeIcon);
             rankValueLabel.setHorizontalTextPosition(SwingConstants.RIGHT);
             rankValueLabel.setIconTextGap(5);

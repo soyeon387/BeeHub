@@ -13,12 +13,13 @@ import council.CouncilMainFrame;
 public class LoginFrame extends JFrame {
 
     // ===============================
-    // 🎨 컬러 테마
+    // 🎨 컬러 테마 (따스하고 세련된 꿀 배색)
     // ===============================
-    private static final Color BG_YELLOW = new Color(255, 255, 210); 
-    private static final Color BROWN = new Color(100, 60, 28);
+    private static final Color BG_YELLOW = new Color(255, 250, 205); // 더 부드러운 노랑
+    private static final Color BROWN = new Color(89, 54, 25);       // 진한 초콜릿 브라운
+    private static final Color SOFT_BROWN = new Color(130, 90, 60);  // 서브 텍스트용 브라운
     private static final Color INPUT_BG = new Color(255, 255, 255);
-    private static final Color GRAY = new Color(200, 200, 200);
+    private static final Color POINT_ORANGE = new Color(255, 167, 38); // 포인트 컬러
 
     private static Font uiFont;
 
@@ -68,70 +69,67 @@ public class LoginFrame extends JFrame {
     }
 
     // ===============================================================
-    // 1️⃣ 일반 로그인 화면 (학생 전용)
+    // 1️⃣ 일반 로그인 화면 (디자인 강화 버전)
     // ===============================================================
     private JPanel createLoginPanel() {
         JPanel panel = createBackgroundPanel();
         panel.setLayout(null);
 
-        JLabel beeIcon = new JLabel();
-        URL imgUrl = getClass().getResource("/img/login-bee.png");
-        
-        if (imgUrl != null) {
-            ImageIcon originalIcon = new ImageIcon(imgUrl);
-            Image img = originalIcon.getImage().getScaledInstance(100, 100, Image.SCALE_SMOOTH);
-            beeIcon.setIcon(new ImageIcon(img));
-            beeIcon.setBounds(380, 20, 100, 100); 
-        } else {
-            beeIcon.setText("🐝");
-            beeIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 60));
-            beeIcon.setBounds(400, 30, 80, 80);
-        }
-        panel.add(beeIcon);
+        // 🏷️ 서브 타이틀 (휑한 느낌 제거)
+        JLabel subLabel = new JLabel("슈니만을 위한 학교 생활 도우미", SwingConstants.CENTER);
+        subLabel.setFont(uiFont.deriveFont(Font.PLAIN, 15f));
+        subLabel.setForeground(SOFT_BROWN);
+        subLabel.setBounds(25, 45, 450, 30);
+        panel.add(subLabel);
 
+        // 🏷️ 메인 타이틀 (외곽선 없이 깔끔하게)
         OutlinedLabel title = new OutlinedLabel("서울여대 꿀단지", SwingConstants.CENTER);
-        title.setFont(uiFont.deriveFont(45f));
+        title.setFont(uiFont.deriveFont(48f));
         title.setForeground(BROWN);
-        title.setOutlineColor(Color.WHITE);
-        title.setStrokeWidth(8f);
-        title.setBounds(25, 100, 450, 80);
+        title.setOutlineColor(new Color(255, 255, 255, 0)); // 외곽선 제거
+        title.setStrokeWidth(0f);
+        title.setBounds(25, 75, 450, 80);
         panel.add(title);
 
-        JLabel idLabel = new JLabel("아이디 :");
-        idLabel.setFont(uiFont.deriveFont(20f));
+        // ⌨️ 입력 섹션 (위치 재조정)
+        JLabel idLabel = new JLabel("학번 (ID)");
+        idLabel.setFont(uiFont.deriveFont(19f));
         idLabel.setForeground(BROWN);
-        idLabel.setBounds(80, 230, 150, 30);
+        idLabel.setBounds(85, 180, 150, 30);
         panel.add(idLabel);
 
         hakbunField = createStyledTextField();
-        hakbunField.setBounds(80, 265, 340, 50);
+        hakbunField.setBounds(80, 225, 340, 50);
         hakbunField.addActionListener(e -> handleUserLogin());
         panel.add(hakbunField);
 
-        JLabel pwLabel = new JLabel("비밀번호 :");
-        pwLabel.setFont(uiFont.deriveFont(20f));
+        JLabel pwLabel = new JLabel("비밀번호 (PW)");
+        pwLabel.setFont(uiFont.deriveFont(19f));
         pwLabel.setForeground(BROWN);
-        pwLabel.setBounds(80, 340, 150, 30);
+        pwLabel.setBounds(85, 310, 150, 30);
         panel.add(pwLabel);
 
         pwField = createStyledPasswordField();
-        pwField.setBounds(80, 375, 340, 50);
+        pwField.setBounds(80, 365, 340, 50);
         pwField.addActionListener(e -> handleUserLogin());
         panel.add(pwField);
 
+        // 🔗 보조 버튼
         JButton findPwBtn = createTextButton("비밀번호 찾기");
-        findPwBtn.setBounds(300, 435, 130, 30);
+        findPwBtn.setBounds(255, 440, 260, 30);
         findPwBtn.addActionListener(e -> cardLayout.show(containerPanel, "findPw"));
         panel.add(findPwBtn);
 
+        // 🚀 로그인 버튼 (세련된 둥근 버튼)
         JButton loginBtn = createStyledButton("로그인");
-        loginBtn.setBounds(100, 500, 300, 60);
+     // x를 90에서 105로 변경
+        loginBtn.setBounds(105, 490, 290, 55);
         loginBtn.addActionListener(e -> handleUserLogin());
         panel.add(loginBtn);
 
-        JButton adminBtn = createSmallButton("관리자 로그인");
-        adminBtn.setBounds(340, 600, 120, 40);
-        adminBtn.setFont(uiFont.deriveFont(14f));
+        // 👤 관리자 버튼 (하단 배치)
+        JButton adminBtn = createSmallButton("관리자 모드");
+        adminBtn.setBounds(360, 610, 110, 35);
         adminBtn.addActionListener(e -> cardLayout.show(containerPanel, "admin"));
         panel.add(adminBtn);
 
@@ -139,8 +137,126 @@ public class LoginFrame extends JFrame {
     }
 
     // ===============================================================
-    // 2️⃣ 비밀번호 찾기 화면
+    // 🎨 픽셀 스타일 배경 (세련된 버전)
     // ===============================================================
+    private JPanel createBackgroundPanel() {
+        return new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // 1. 메인 배경색
+                g2d.setColor(BG_YELLOW); 
+                g2d.fillRect(0, 0, getWidth(), getHeight());
+                
+                // 2. 고해상도 픽셀/도트 패턴
+                int rectSize = 4;
+                int gap = 24;
+                
+                for (int x = 0; x < getWidth(); x += gap) {
+                    for (int y = 0; y < getHeight(); y += gap) {
+                        int offsetX = ((y / gap) % 2 == 0) ? 0 : gap / 2;
+                        
+                        // 위치에 따라 미세하게 색상을 변화시켜 깊이감 부여
+                        float alpha = 0.1f + (float)(Math.sin((x+y)/50.0)*0.05);
+                        g2d.setColor(new Color(130, 90, 60, (int)(alpha * 255)));
+                        g2d.fillRect(x + offsetX, y, rectSize, rectSize);
+                    }
+                }
+
+                // 3. 은은한 상단 그라데이션 (입체감)
+                GradientPaint gp = new GradientPaint(0, 0, new Color(255, 255, 255, 100), 0, 150, new Color(255, 255, 255, 0));
+                g2d.setPaint(gp);
+                g2d.fillRect(0, 0, getWidth(), 150);
+            }
+        };
+    }
+
+    // ===============================================================
+    // 🛠️ 세련된 UI 컴포넌트 생성기
+    // ===============================================================
+    private JTextField createStyledTextField() {
+        JTextField f = new JTextField();
+        f.setFont(uiFont.deriveFont(17f));
+        f.setBackground(INPUT_BG);
+        f.setBorder(BorderFactory.createCompoundBorder(
+            new RoundedBorder(15, new Color(210, 210, 210)), 
+            BorderFactory.createEmptyBorder(5, 15, 5, 15)
+        ));
+        
+        // 포커스 이벤트 (선택 시 테두리 색상 변경)
+        f.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) { f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, POINT_ORANGE), BorderFactory.createEmptyBorder(5, 15, 5, 15))); }
+            public void focusLost(FocusEvent e) { f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, new Color(210, 210, 210)), BorderFactory.createEmptyBorder(5, 15, 5, 15))); }
+        });
+        return f;
+    }
+
+    private JPasswordField createStyledPasswordField() {
+        JPasswordField f = new JPasswordField();
+        f.setEchoChar('●'); 
+        f.setFont(uiFont.deriveFont(17f));
+        f.setBackground(INPUT_BG);
+        f.setBorder(BorderFactory.createCompoundBorder(
+            new RoundedBorder(15, new Color(210, 210, 210)), 
+            BorderFactory.createEmptyBorder(5, 15, 5, 15)
+        ));
+        f.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) { f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, POINT_ORANGE), BorderFactory.createEmptyBorder(5, 15, 5, 15))); }
+            public void focusLost(FocusEvent e) { f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, new Color(210, 210, 210)), BorderFactory.createEmptyBorder(5, 15, 5, 15))); }
+        });
+        return f;
+    }
+
+    private JButton createStyledButton(String text) {
+        JButton b = new JButton(text);
+        b.setFont(uiFont.deriveFont(Font.BOLD, 22f));
+        b.setBackground(BROWN);
+        b.setForeground(Color.WHITE);
+        b.setFocusPainted(false);
+        b.setBorder(new RoundedBorder(20, BROWN));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        // 버튼 호버 효과
+        b.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { b.setBackground(SOFT_BROWN); }
+            public void mouseExited(MouseEvent e) { b.setBackground(BROWN); }
+        });
+        return b;
+    }
+
+    private JButton createSmallButton(String text) {
+        JButton b = new JButton(text); 
+        b.setFont(uiFont.deriveFont(13f));
+        b.setBackground(new Color(255, 255, 255, 150));
+        b.setForeground(BROWN);
+        b.setFocusPainted(false);
+        b.setBorder(new RoundedBorder(12, new Color(200, 200, 200)));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return b;
+    }
+
+    private JButton createTextButton(String text) {
+        JButton b = new JButton(text);
+        b.setFont(uiFont.deriveFont(Font.PLAIN, 13f));
+        b.setContentAreaFilled(false);
+        b.setBorder(null);
+        b.setForeground(SOFT_BROWN);
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        
+        b.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { b.setForeground(POINT_ORANGE); }
+            public void mouseExited(MouseEvent e) { b.setForeground(SOFT_BROWN); }
+        });
+        return b;
+    }
+
+    // ───────────────────────────────────────────────────────────────
+    // 기존 기능 메서드 (handleUserLogin, handleAdminLogin, createFindPwPanel 등)
+    // ───────────────────────────────────────────────────────────────
+    
     private JPanel createFindPwPanel() {
         JPanel panel = createBackgroundPanel();
         panel.setLayout(null);
@@ -149,7 +265,7 @@ public class LoginFrame extends JFrame {
         title.setFont(uiFont.deriveFont(38f));
         title.setForeground(BROWN);
         title.setOutlineColor(Color.WHITE);
-        title.setStrokeWidth(7f);
+        title.setStrokeWidth(0f);
         title.setBounds(50, 60, 400, 60);
         panel.add(title);
 
@@ -170,43 +286,21 @@ public class LoginFrame extends JFrame {
         return panel;
     }
 
-    // ===============================================================
-    // 3️⃣ 관리자 로그인 화면 (관리자 전용)
-    // ===============================================================
     private JPanel createAdminPanel() {
         JPanel panel = createBackgroundPanel();
         panel.setLayout(null);
 
-        JLabel beeIcon = new JLabel();
-        URL imgUrl = getClass().getResource("/img/login-bee.png");
-
-        if (imgUrl != null) {
-            ImageIcon originalIcon = new ImageIcon(imgUrl);
-            Image img = originalIcon.getImage().getScaledInstance(70, 70, Image.SCALE_SMOOTH);
-            beeIcon.setIcon(new ImageIcon(img));
-            beeIcon.setBounds(410, 10, 70, 70);
-        } else {
-            beeIcon.setText("🐝");
-            beeIcon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
-            beeIcon.setBounds(420, 20, 50, 50);
-        }
-        panel.add(beeIcon);
-
-        JLabel subTitle = new JLabel("관리자 VER", SwingConstants.CENTER);
-        subTitle.setFont(uiFont.deriveFont(17f));
-        subTitle.setForeground(BROWN);
-        subTitle.setOpaque(true);
-        subTitle.setBackground(Color.WHITE);
-        subTitle.setBorder(new RoundedBorder(10, BROWN));
-        subTitle.setBounds(190, 60, 120, 35);
+        JLabel subTitle = new JLabel("관리자 모니터링 시스템", SwingConstants.CENTER);
+        subTitle.setFont(uiFont.deriveFont(15f));
+        subTitle.setForeground(SOFT_BROWN);
+        subTitle.setBounds(50, 60, 400, 30);
         panel.add(subTitle);
 
-        OutlinedLabel title = new OutlinedLabel("서울여대 꿀단지", SwingConstants.CENTER);
+        OutlinedLabel title = new OutlinedLabel("ADMIN LOGIN", SwingConstants.CENTER);
         title.setFont(uiFont.deriveFont(40f));
         title.setForeground(BROWN);
-        title.setOutlineColor(Color.WHITE);
-        title.setStrokeWidth(7f);
-        title.setBounds(50, 110, 400, 60);
+        title.setStrokeWidth(0f);
+        title.setBounds(50, 90, 400, 60);
         panel.add(title);
 
         JLabel idLabel = new JLabel("관리자 ID");
@@ -231,316 +325,137 @@ public class LoginFrame extends JFrame {
         adminPwField.addActionListener(e -> handleAdminLogin());
         panel.add(adminPwField);
 
-        JButton loginBtn = createStyledButton("로그인");
+        JButton loginBtn = createStyledButton("시스템 접속");
         loginBtn.setBounds(100, 460, 300, 60);
         loginBtn.addActionListener(e -> handleAdminLogin());
         panel.add(loginBtn);
         
-        JButton backBtn = createSmallButton("뒤로가기");
-        backBtn.setBounds(380, 600, 90, 50);
+        JButton backBtn = createSmallButton("학생 로그인으로");
+        backBtn.setBounds(340, 600, 130, 50);
         backBtn.addActionListener(e -> cardLayout.show(containerPanel, "login"));
         panel.add(backBtn);
 
         return panel;
     }
 
-    // ===============================================================
-    // 💾 일반 사용자 로그인 처리 (학생만 가능!)
-    // ===============================================================
     private void handleUserLogin() {
         String id = hakbunField.getText().trim();
         String pw = new String(pwField.getPassword()).trim();
-
-        if (id.isEmpty() || pw.isEmpty()) {
-            showCustomDialog("아이디와 비밀번호를\n모두 입력해주세요.", false);
-            return;
-        }
-
+        if (id.isEmpty() || pw.isEmpty()) { showCustomDialog("아이디와 비밀번호를 \n모두 입력해주세요.", false); return; }
         UserDAO dao = new UserDAO();
         User loginUser = dao.loginAndGetUser(id, pw);
-
         if (loginUser != null) {
-            String role = loginUser.getRole();
-
-            // 🛑 관리자는 일반 로그인 불가!
-            if (!"USER".equalsIgnoreCase(role)) {
-                showCustomDialog("관리자 로그인 페이지를\n 이용해주세요.", false);
-                return;
-            }
-
-            // ✅ 일반 학생만 통과
+            if (!"USER".equalsIgnoreCase(loginUser.getRole())) { showCustomDialog("관리자 로그인 페이지를 이용해주세요.", false); return; }
             UserManager.setCurrentUser(loginUser);
             Member m = convertToMember(loginUser);
             LoginSession.setUser(m);
-
+            showCustomDialog("반가워요, " + m.getName() + "님!", false);
             new MainFrame(m.getName(), m.getHakbun());
             dispose();
-
-        } else {
-            showCustomDialog("로그인 실패\n아이디 또는 비밀번호를 확인하세요.", false);
-        }
+        } else { showCustomDialog("정보가 일치하지 않습니다.\n다시 확인해주세요.", false); }
     }
 
-    // ===============================================================
-    // 💾 관리자 로그인 처리 (관리자만 가능!)
-    // ===============================================================
     private void handleAdminLogin() {
         String id = adminIdField.getText().trim();
         String pw = new String(adminPwField.getPassword()).trim();
-        
-        if(id.isEmpty() || pw.isEmpty()) {
-            showCustomDialog("관리자 정보를 입력해주세요.", false);
-            return;
-        }
-
+        if(id.isEmpty() || pw.isEmpty()) { showCustomDialog("관리자 정보를 입력해주세요.", false); return; }
         UserDAO dao = new UserDAO();
-        
-        // 1. 하드코딩된 admin 계정 체크 (기존 유지)
-        if (dao.checkAdminLogin(id, pw)) {
-            showCustomDialog("총 관리자님 환영합니다!", false);
-            new admin.AdminMainFrame(); 
-            dispose();
-            return;
-        } 
-        
-        // 2. DB에 있는 관리자 계정 체크 (council_soft 등)
+        if (dao.checkAdminLogin(id, pw)) { showCustomDialog("총 관리자 시스템에 접속합니다.", false); new AdminMainFrame(); dispose(); return; } 
         User loginUser = dao.loginAndGetUser(id, pw);
-        
         if (loginUser != null) {
-            String role = loginUser.getRole();
-            
-            // 🛑 일반 학생은 관리자 로그인 불가!
-            if ("USER".equalsIgnoreCase(role)) {
-                showCustomDialog("일반 사용자는 접근할 수 없습니다.", false);
-                return;
-            }
-
-            // ✅ 관리자(총관리자 or 학생회)만 통과
+            if ("USER".equalsIgnoreCase(loginUser.getRole())) { showCustomDialog("관리 권한이 없는 계정입니다.", false); return; }
             UserManager.setCurrentUser(loginUser);
             Member m = convertToMember(loginUser);
             LoginSession.setUser(m);
-
-            if ("ADMIN_COUNCIL".equals(role) || "COUNCIL".equalsIgnoreCase(role)) {
-                new CouncilMainFrame(m.getHakbun(), m.getMajor());
-                dispose();
-            } else if ("ADMIN_TOTAL".equals(role) || "ADMIN".equalsIgnoreCase(role)) {
-                new AdminMainFrame();
-                dispose();
-            }
-        } else {
-            showCustomDialog("로그인 실패\n정보를 확인해주세요.", false);
-        }
+            if ("ADMIN_COUNCIL".equals(m.getRole()) || "COUNCIL".equalsIgnoreCase(m.getRole())) { new CouncilMainFrame(m.getHakbun(), m.getMajor()); dispose(); }
+            else if ("ADMIN_TOTAL".equals(m.getRole()) || "ADMIN".equalsIgnoreCase(m.getRole())) { new AdminMainFrame(); dispose(); }
+        } else { showCustomDialog("관리자 인증에 실패했습니다.", false); }
     }
 
-    // 💾 비밀번호 찾기 처리
     private void handleFindPassword() {
-        String name   = findNameField.getText().trim();
+        String name = findNameField.getText().trim();
         String hakbun = findHakbunField.getText().trim();
-        String phone  = findPhoneField.getText().trim();
-
-        if (name.isEmpty() || hakbun.isEmpty() || phone.isEmpty()) {
-            showCustomDialog("이름, 학번, 전화번호를\n모두 입력해주세요.", false);
-            return;
-        }
-
+        String phone = findPhoneField.getText().trim();
+        if (name.isEmpty() || hakbun.isEmpty() || phone.isEmpty()) { showCustomDialog("모든 정보를 입력해주세요.", false); return; }
         UserDAO dao = new UserDAO();
         String pw = dao.findPassword(name, hakbun, phone);
-
-        if (pw != null) {
-            showCustomDialog("비밀번호는\n" + pw + " 입니다.", true);
-        } else {
-            showCustomDialog("일치하는 회원 정보가 없습니다.", false);
-        }
+        if (pw != null) { showCustomDialog("비밀번호: " + pw, true); }
+        else { showCustomDialog("정보와 일치하는 회원이 없습니다.", false); }
     }
 
-    // ===============================================================
-    // 🎨 예쁜 커스텀 팝업창
-    // ===============================================================
     private void showCustomDialog(String message, boolean goBackToLogin) {
-        JDialog dialog = new JDialog(this, "알림", true);
-        dialog.setSize(400, 250);
+        JDialog dialog = new JDialog(this, "BeeHub 알림", true);
+        dialog.setSize(380, 220);
         dialog.setLocationRelativeTo(this);
         dialog.setUndecorated(true);
         dialog.setBackground(new Color(0,0,0,0));
 
         JPanel panel = new JPanel() {
-            @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(BG_YELLOW);
+                g2.setColor(Color.WHITE);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
                 g2.setColor(BROWN);
-                g2.setStroke(new BasicStroke(3));
-                g2.drawRoundRect(1, 1, getWidth()-3, getHeight()-3, 30, 30);
+                g2.setStroke(new BasicStroke(2));
+                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 30, 30);
             }
         };
         panel.setLayout(null);
         dialog.add(panel);
 
-        JPanel textPanel = new JPanel(new GridBagLayout());
-        textPanel.setOpaque(false);
-        textPanel.setBounds(30, 40, 340, 110); 
-        panel.add(textPanel);
-
         JTextPane msgPane = new JTextPane();
         msgPane.setText(message);
-        msgPane.setFont(uiFont.deriveFont(20f));
+        msgPane.setFont(uiFont.deriveFont(19f));
         msgPane.setForeground(BROWN);
-        msgPane.setOpaque(false);
         msgPane.setEditable(false);
-        msgPane.setFocusable(false);
-        
+        msgPane.setOpaque(false);
         StyledDocument doc = msgPane.getStyledDocument();
         SimpleAttributeSet center = new SimpleAttributeSet();
         StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
         doc.setParagraphAttributes(0, doc.getLength(), center, false);
-
-        textPanel.add(msgPane);
+        msgPane.setBounds(30, 50, 320, 80);
+        panel.add(msgPane);
 
         JButton okBtn = createStyledButton("확인");
-        okBtn.setFont(uiFont.deriveFont(18f));
-        okBtn.setBounds(120, 160, 160, 50);
-        okBtn.addActionListener(e -> {
-            dialog.dispose();
-            if (goBackToLogin) {
-                cardLayout.show(containerPanel, "login");
-            }
-        });
-        
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.BOTH; // 양방향 확장
-        gbc.weightx = 1.0; // 가중치 1.0으로 가로 확장 보장
-        gbc.weighty = 1.0; // 세로 확장 보장
-        
-        textPanel.add(msgPane, gbc); // 수정된 gbc를 적용
-        
+        okBtn.setFont(uiFont.deriveFont(16f));
+        okBtn.setBounds(130, 140, 120, 45);
+        okBtn.addActionListener(e -> { dialog.dispose(); if (goBackToLogin) cardLayout.show(containerPanel, "login"); });
         panel.add(okBtn);
 
         dialog.setVisible(true);
     }
 
-    // ===============================================================
-    // 🛠️ 공통 UI Helper
-    // ===============================================================
     class OutlinedLabel extends JLabel {
         private Color outlineColor = Color.WHITE;
         private float strokeWidth = 4f;
-
         public OutlinedLabel(String text, int alignment) { super(text, alignment); }
         public void setOutlineColor(Color color) { this.outlineColor = color; }
         public void setStrokeWidth(float w) { this.strokeWidth = w; }
-
-        @Override
         public void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            Font f = getFont();
-            g2.setFont(f);
+            Font f = getFont(); g2.setFont(f);
             FontMetrics fm = g2.getFontMetrics();
             int x = (getWidth() - fm.stringWidth(getText())) / 2;
             int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
             Shape textShape = f.createGlyphVector(g2.getFontRenderContext(), getText()).getOutline(x, y);
-            
-            g2.setColor(outlineColor);
-            g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g2.draw(textShape);
+            if (strokeWidth > 0) {
+                g2.setColor(outlineColor);
+                g2.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.draw(textShape);
+            }
             g2.setColor(getForeground());
             g2.fill(textShape);
             g2.dispose();
         }
     }
 
-    private JPanel createBackgroundPanel() {
-        return new JPanel() {
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g;
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setColor(BG_YELLOW);
-                g2d.fillRect(0, 0, getWidth(), getHeight());
-                
-                g2d.setColor(new Color(255, 235, 59, 50));
-                g2d.setStroke(new BasicStroke(3));
-                int size = 70;
-                for (int row = -1; row < 12; row++) {
-                    for (int col = -1; col < 8; col++) {
-                        int x = col * size * 3 / 2;
-                        int y = (int) (row * size * Math.sqrt(3));
-                        if (col % 2 == 1) y += (int) (size * Math.sqrt(3) / 2);
-                        Polygon hex = new Polygon();
-                        for (int i = 0; i < 6; i++) {
-                            hex.addPoint((int)(x + size * Math.cos(Math.PI/3*i)), (int)(y + size * Math.sin(Math.PI/3*i)));
-                        }
-                        g2d.draw(hex);
-                    }
-                }
-            }
-        };
-    }
-
     private JTextField addLabelAndField(JPanel p, String text, int y) {
-        JLabel l = new JLabel(text);
-        l.setFont(uiFont.deriveFont(18f));
-        l.setForeground(BROWN);
-        l.setBounds(70, y, 100, 30);
-        p.add(l);
-
-        JTextField f = createStyledTextField();
-        f.setBounds(160, y - 5, 250, 40);
-        p.add(f);
-
+        JLabel l = new JLabel(text); l.setFont(uiFont.deriveFont(16f));
+        l.setForeground(BROWN); l.setBounds(70, y, 100, 30); p.add(l);
+        JTextField f = createStyledTextField(); f.setBounds(160, y - 5, 250, 40); p.add(f);
         return f;
-    }
-
-    private JTextField createStyledTextField() {
-        JTextField f = new JTextField();
-        f.setFont(uiFont.deriveFont(18f));
-        f.setBackground(INPUT_BG);
-        f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, GRAY), BorderFactory.createEmptyBorder(5, 10, 5, 10)));
-        return f;
-    }
-
-    private JPasswordField createStyledPasswordField() {
-        JPasswordField f = new JPasswordField();
-        // 이 한 줄을 추가하여 마스킹 문자를 '*'로 명시적으로 설정합니다.
-        f.setEchoChar('*'); // <--- 이 라인을 추가하세요
-        f.setFont(uiFont.deriveFont(18f));
-        f.setBackground(INPUT_BG);
-        f.setBorder(BorderFactory.createCompoundBorder(new RoundedBorder(15, GRAY), BorderFactory.createEmptyBorder(5, 10, 5, 10)));
-        return f;
-    }
-
-    private JButton createStyledButton(String text) {
-        JButton b = new JButton(text);
-        b.setFont(uiFont.deriveFont(24f));
-        b.setBackground(BROWN);
-        b.setForeground(Color.WHITE);
-        b.setFocusPainted(false);
-        b.setBorder(new RoundedBorder(20, BROWN));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
-    }
-
-    private JButton createSmallButton(String text) {
-        JButton b = new JButton(text); 
-        b.setFont(uiFont.deriveFont(14f));
-        b.setBackground(GRAY);
-        b.setForeground(BROWN);
-        b.setFocusPainted(false);
-        b.setBorder(new RoundedBorder(15, GRAY));
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
-    }
-
-    private JButton createTextButton(String text) {
-        JButton b = new JButton(text);
-        b.setFont(uiFont.deriveFont(14f));
-        b.setContentAreaFilled(false);
-        b.setBorder(null);
-        b.setForeground(BROWN);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
     }
 
     private static class RoundedBorder implements Border {
@@ -555,25 +470,17 @@ public class LoginFrame extends JFrame {
             g2.drawRoundRect(x, y, w - 1, h - 1, radius, radius);
         }
     }
-
+    
     public static void main(String[] args) {
         SwingUtilities.invokeLater(LoginFrame::new);
     }
-    
+
     private Member convertToMember(User user) {
         Member m = new Member();
-        m.setHakbun(user.getId());
-        m.setPw(user.getPassword());
-        m.setName(user.getName());
-        m.setMajor(user.getDept());
-        m.setPoint(user.getPoints());
-        m.setNickname(user.getNickname());
-        
+        m.setHakbun(user.getId()); m.setPw(user.getPassword()); m.setName(user.getName());
+        m.setMajor(user.getDept()); m.setPoint(user.getPoints()); m.setNickname(user.getNickname());
         if (m.getIsFeePaid() == null) m.setIsFeePaid("N");
-        if (m.getGrade() == null)     m.setGrade("일벌");
-        if (m.getPenaltyDate() == null) m.setPenaltyDate(null);
-        if (m.getWarningCount() == 0) m.setWarningCount(0);
-
+        if (m.getGrade() == null) m.setGrade("일벌");
         m.setRole(user.getRole());
         return m;
     }

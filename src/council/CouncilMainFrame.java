@@ -145,11 +145,24 @@ public class CouncilMainFrame extends JFrame {
         LocalDateTime now = LocalDateTime.now();
 
         for (EventManager.EventData event : events) {
-            boolean isEnded = false;
 
-            if (event.date != null) {
-                // 행사 시작 시간이 현재보다 이전이면 종료로 취급
-                isEnded = event.date.isBefore(now);
+            boolean isEnded = false;
+            if ("종료".equals(event.status)) isEnded = true;
+
+            // ✅ 종료 판정은 "신청 마감시간(applyEnd)" 기준
+            LocalDateTime end = event.applyEnd;
+
+            // applyEnd가 없으면(데이터 누락) 최소한 event_date 기준(간식은 +1시간)으로 방어
+            if (end == null && event.date != null) {
+                if (event.eventType != null && event.eventType.equalsIgnoreCase("SNACK")) {
+                    end = event.date.plusHours(1);
+                } else {
+                    end = event.date;
+                }
+            }
+
+            if (end != null) {
+                isEnded = end.isBefore(now); // end < now 이면 종료
             }
 
             if (isEnded) {

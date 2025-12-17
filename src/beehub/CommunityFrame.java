@@ -126,7 +126,7 @@ public class CommunityFrame extends JFrame {
         }
         // 2. 메모리 목록에서도 제거
         allPosts.remove(postToDelete);
-        searchPosts();
+        searchPosts(false);
     }
 
 
@@ -303,7 +303,7 @@ public class CommunityFrame extends JFrame {
                             detailFrame.addWindowListener(new WindowAdapter() {
                                 @Override
                                 public void windowClosed(WindowEvent e2) {
-                                    searchPosts();
+                                    searchPosts(false);
                                 }
                             });
                         }
@@ -334,14 +334,21 @@ public class CommunityFrame extends JFrame {
     }
     
     // --- 기능 로직 ---
-
     public void searchPosts() {
+        searchPosts(true);
+    }
+
+    /**
+     * 게시글 목록을 검색/필터링한 뒤 테이블을 다시 그립니다.
+     * @param resetPage true면 1페이지로 이동, false면 현재 페이지를 유지(가능한 범위로 보정)
+     */
+    public void searchPosts(boolean resetPage) {
         if (searchField == null) {
             filteredPosts.clear();
             filteredPosts.addAll(allPosts);
             return;
         }
-        
+
         String keyword = searchField.getText().trim();
         filteredPosts.clear();
 
@@ -352,12 +359,22 @@ public class CommunityFrame extends JFrame {
                 .filter(p -> p.title.contains(keyword) || p.writer.contains(keyword))
                 .collect(Collectors.toList());
         }
-        
+
         filteredPosts.sort((p1, p2) -> Integer.compare(p2.no, p1.no));
 
-        currentPage = 1;
+        if (resetPage) {
+            currentPage = 1;
+        } else {
+            // 현재 페이지 유지 (삭제 등으로 총 페이지가 줄었을 때를 대비해 범위 보정)
+            int totalPages = (int) Math.ceil((double) filteredPosts.size() / itemsPerPage);
+            if (totalPages == 0) totalPages = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+        }
+
         renderTable();
     }
+
 
     private void renderTable() {
         tableModel.setRowCount(0);

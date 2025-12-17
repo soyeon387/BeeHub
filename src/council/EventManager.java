@@ -1,4 +1,3 @@
-// 파일명: EventManager.java
 package council;
 
 import beehub.DBUtil;

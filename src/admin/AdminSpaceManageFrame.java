@@ -16,6 +16,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import beehub.DBUtil;
+import beehub.SpacePenaltyManager;
 
 public class AdminSpaceManageFrame extends JFrame {
 
@@ -306,47 +307,54 @@ public class AdminSpaceManageFrame extends JFrame {
                 LocalDateTime now = LocalDateTime.now();
                 LocalDateTime reserveStart = LocalDateTime.of(data.date, data.startTime);
 
-                // ✅ 시작 + 9분 이후부터만 미입실 처리 가능
-                LocalDateTime cancelAllowedTime = reserveStart.plusMinutes(9);
+                // ✅ 시작 + 10분 이후부터만 미입실 처리 가능
+                LocalDateTime cancelAllowedTime = reserveStart.plusMinutes(10);
 
                 if (now.isBefore(cancelAllowedTime)) {
                     String msg =
                         "아직 미입실 처리를 할 수 없습니다.\n" +
-                        "입장 시간 9분 후 (" +
+                        "예약 시작 10분 후 (" +
                         cancelAllowedTime.format(DateTimeFormatter.ofPattern("HH:mm")) +
-                        ") 부터 취소 가능합니다.";
-                    showMsgPopup("취소 불가", msg);
+                        ") 부터 처리 가능합니다.";
+                    showMsgPopup("처리 불가", msg);
                     return;
                 }
 
                 boolean confirm = showConfirmPopup(
-                        "꿀 포인트 차감",
-                        "[" + data.userName + "]님을 미입실로 처리하시겠습니까?\n(50꿀이 차감됩니다)"
+                        "미입실 처리",
+                        "[" + data.userName + "]님을 미입실로 처리하시겠습니까?\n(경고 1회가 부여됩니다)"
                 );
 
                 if (confirm) {
                     // 1) 예약 상태 NO_SHOW로 변경
                     boolean dbOk = updateReservationAsNoShow(data);
                     if (!dbOk) {
-                        showMsgPopup("DB 오류", "예약 취소 처리 중 오류가 발생했습니다.");
+                        showMsgPopup("DB 오류", "미입실 처리 중 오류가 발생했습니다.");
                         return;
                     }
 
-                    // 2) 회원 포인트 50 차감
-                    boolean pointOk = deductPointForNoShow(data.userId, 50);
-                    if (!pointOk) {
-                        showMsgPopup("포인트 차감 실패", "예약은 미입실 처리되었으나,\n포인트 차감에 실패했습니다.");
-                    } else {
+                 // 2) ✅ 포인트 차감 대신 경고 누적(공간대여 전용)
+                    SpacePenaltyManager.addWarning(data.userId);
+
+                    // 3) 결과 안내(정지 여부에 따라 메시지 분기)
+                    if (SpacePenaltyManager.isBanned(data.userId)) {
+                        String until = SpacePenaltyManager.getBanDate(data.userId); // ✅ String으로 받기
                         showMsgPopup("미입실 처리 완료",
-                                "미입실로 처리되었습니다.\n해당 회원의 꿀 50점이 차감되었습니다.");
+                                "미입실로 처리되었습니다.\n경고 누적으로 " + until + "까지"
+                                		+ "\n공간대여가 제한됩니다.");
+                    } else {
+                        int warning = SpacePenaltyManager.getWarningCount(data.userId);
+                        showMsgPopup("미입실 처리 완료",
+                                "미입실로 처리되었습니다.\n경고 " + warning + "회가 부여되었습니다.\n(경고 2회 누적 시 7일 제한)");
                     }
+
 
                     data.statusKor = "미입실 취소";
                     data.statusRaw = "NO_SHOW";
-
                     refreshList();
                 }
             });
+
         }
 
         cancelBtn.setFont(uiFont.deriveFont(14f));
@@ -364,44 +372,45 @@ public class AdminSpaceManageFrame extends JFrame {
         String sql =
             "UPDATE space_reservation " +
             "SET status = 'NO_SHOW' " +
-            "WHERE reservation_id = ?";
+            "WHERE reservation_id = ? AND status = 'RESERVED'";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, data.reservationId);
             int updated = pstmt.executeUpdate();
-            return updated > 0;
+            return updated > 0; // 이미 NO_SHOW면 0 반환 → 경고 부여 막힘
 
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
+
 
     // =======================================
     // 🔹 미입실 시 포인트 차감 (기본 50꿀)
     // =======================================
-    private boolean deductPointForNoShow(String hakbun, int amount) {
-        String sql =
-            "UPDATE members " +
-            "SET point = GREATEST(point - ?, 0) " +  // 0 이하로는 내려가지 않게
-            "WHERE hakbun = ?";
-
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, amount);
-            pstmt.setString(2, hakbun);
-
-            int updated = pstmt.executeUpdate();
-            return updated > 0;
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
+//    private boolean deductPointForNoShow(String hakbun, int amount) {
+//        String sql =
+//            "UPDATE members " +
+//            "SET point = GREATEST(point - ?, 0) " +  // 0 이하로는 내려가지 않게
+//            "WHERE hakbun = ?";
+//
+//        try (Connection conn = DBUtil.getConnection();
+//             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+//
+//            pstmt.setInt(1, amount);
+//            pstmt.setString(2, hakbun);
+//
+//            int updated = pstmt.executeUpdate();
+//            return updated > 0;
+//
+//        } catch (SQLException e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//    }
 
     // ==========================================
     // 🎨 팝업 메소드들

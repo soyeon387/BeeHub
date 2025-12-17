@@ -108,7 +108,7 @@ public class CouncilEventAddDialog extends JDialog {
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
         JPanel content = new JPanel();
-        content.setBackground(BG_WHITE);
+        content.setBackground(POPUP_BG);
         content.setBorder(new EmptyBorder(15, 15, 15, 15));
         content.setLayout(new BorderLayout(10, 10));
         setContentPane(content);
@@ -118,8 +118,10 @@ public class CouncilEventAddDialog extends JDialog {
         titleLabel.setForeground(BROWN);
         content.add(titleLabel, BorderLayout.NORTH);
 
+        
         JPanel form = new JPanel();
-        form.setOpaque(false);
+        form.setOpaque(true);
+        form.setBackground(BG_WHITE);  
         form.setLayout(new GridBagLayout());
         content.add(new JScrollPane(form), BorderLayout.CENTER);
 
