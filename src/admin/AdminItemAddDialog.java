@@ -243,12 +243,23 @@ public class AdminItemAddDialog extends JDialog {
                 return;
             }
         } else {
-            // 🔥 기존 아이템 수정
             currentItem.setName(name);
+
+            int oldTotal = currentItem.getTotalStock();
+            int oldAvail = currentItem.getAvailableStock();   // Item에 이 getter 있어야 함
+            int rented   = oldTotal - oldAvail;               // 현재 대여중 수량
+
+            if (stock < rented) {
+                showMsgPopup("재고 오류", "현재 대여 중인 수량(" + rented + "개)보다 적게 총 재고를 줄일 수 없습니다.");
+                return;
+            }
+
             currentItem.setTotalStock(stock);
+            currentItem.setAvailableStock(stock - rented);
+
             currentItem.setMaxRentDays(days);
             currentItem.setTargetMajor(majors);
-            if (selectedImagePath != null) {  // 새로 선택했을 때만 덮어쓰기
+            if (selectedImagePath != null) {
                 currentItem.setImagePath(selectedImagePath);
             }
 
@@ -258,6 +269,7 @@ public class AdminItemAddDialog extends JDialog {
                 return;
             }
         }
+
 
         parent.refreshList();
         dispose();

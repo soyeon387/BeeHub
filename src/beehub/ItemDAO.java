@@ -174,6 +174,7 @@ public class ItemDAO {
         String sql = "UPDATE ITEM SET " +
                 "name = ?, " +
                 "total_stock = ?, " +
+                "available_stock = ?, " +
                 "max_rent_days = ?, " +
                 "target_major = ?, " +
                 "image_path = ?, " +
@@ -185,11 +186,12 @@ public class ItemDAO {
 
             pstmt.setString(1, item.getName());
             pstmt.setInt(2, item.getTotalStock());
-            pstmt.setInt(3, item.getMaxRentDays());
-            pstmt.setString(4, item.getTargetMajor());
-            pstmt.setString(5, item.getImagePath());
-            pstmt.setBoolean(6, item.isActive());
-            pstmt.setInt(7, item.getItemId());
+            pstmt.setInt(3, item.getAvailableStock());
+            pstmt.setInt(4, item.getMaxRentDays());
+            pstmt.setString(5, item.getTargetMajor());
+            pstmt.setString(6, item.getImagePath());
+            pstmt.setBoolean(7, item.isActive());
+            pstmt.setInt(8, item.getItemId());
 
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -197,6 +199,7 @@ public class ItemDAO {
             return false;
         }
     }
+
 
     // ✅ 물품 비활성화 (이전 방식 - 지금은 안 써도 됨)
     public boolean deactivateItem(int itemId) {

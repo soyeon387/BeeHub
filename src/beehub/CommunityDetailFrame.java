@@ -9,21 +9,18 @@ import java.io.InputStream;
 import java.util.List;
 
 import beehub.CommunityFrame.Post;
-import beehub.CommunityDAO;
-import beehub.LoginSession;
-import beehub.Member;
 
 public class CommunityDetailFrame extends JFrame {
 
+    // 🎨 꿀단지 컬러 테마
     private static final Color HEADER_YELLOW    = new Color(255, 238, 140);
-    private static final Color BROWN            = new Color(89, 60, 28);
     private static final Color BG_MAIN          = new Color(255, 255, 255);
+    private static final Color BROWN            = new Color(89, 60, 28);
     private static final Color BORDER_COLOR     = new Color(220, 220, 220);
     private static final Color POPUP_BG         = new Color(255, 250, 205);
     private static final Color AUTHOR_HIGHLIGHT = new Color(255, 180, 0);
 
     private static Font uiFont;
-    private static final String FONT_NAME_HTML = "던파 비트비트체 v2";
 
     static {
         try {
@@ -31,8 +28,7 @@ public class CommunityDetailFrame extends JFrame {
             if (fontFile.exists()) {
                 uiFont = Font.createFont(Font.TRUETYPE_FONT, fontFile).deriveFont(14f);
             } else {
-                InputStream is =
-                        CommunityDetailFrame.class.getResourceAsStream("/fonts/DNFBitBitv2.ttf");
+                InputStream is = CommunityDetailFrame.class.getResourceAsStream("/fonts/DNFBitBitv2.ttf");
                 if (is != null) {
                     uiFont = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(14f);
                 } else {
@@ -47,80 +43,57 @@ public class CommunityDetailFrame extends JFrame {
         }
     }
 
-    // ====== 필드 ======
     private Post currentPost;
     private DefaultListModel<String> commentModel;
     private ImageIcon heartIcon;
 
-    // 로그인 / 좋아요용
     private Member loginMember;
-    private String currentUser;    // 현재 로그인한 유저 닉네임(또는 이름)
-    private String currentHakbun;  // 좋아요 테이블용
+    private String currentUser;    
+    private String currentHakbun;  
     private boolean isLiked = false;
 
     private JLabel commentTitle;
     private JButton likeBtn;
-
-    // 게시글 수정 후 업데이트용
     private JLabel postTitle;
     private JLabel writerInfo;
     private JTextArea contentArea;
     private JLabel likeLabel;
 
-    // 수정 / 삭제용
-    private CommunityFrame parentFrame;
-
-    // 댓글·좋아요 DB 연동용 DAO
     private CommunityDAO dao = new CommunityDAO();
 
-    // ====== 생성자 ======
     public CommunityDetailFrame(Post post, ImageIcon icon, String user, CommunityFrame parent) {
         this.currentPost = post;
         this.heartIcon = icon;
-        this.parentFrame = parent;
-
-        // 🔐 로그인 회원 정보
+        
         this.loginMember = LoginSession.getUser();
         if (loginMember != null) {
             currentHakbun = loginMember.getHakbun();
             this.currentUser = resolveDisplayName(loginMember);
         } else {
-            // 혹시 로그인 정보가 null이면 파라미터 값 사용
             this.currentUser = user;
         }
 
-        // 🔗 DB에서 좋아요 수 & 내가 눌렀는지 미리 가져오기
         try {
-            currentPost.likes = dao.getLikeCount(currentPost.no);           // 총 좋아요 수
+            currentPost.likes = dao.getLikeCount(currentPost.no);
             if (currentHakbun != null) {
-                isLiked = dao.hasUserLiked(currentPost.no, currentHakbun);  // 내가 이미 눌렀는지
+                isLiked = dao.hasUserLiked(currentPost.no, currentHakbun);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        // 창 닫을 때 현재 댓글 수를 Post에 반영
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                if (commentModel != null) {
-                    currentPost.comments = commentModel.getSize();
-                }
-            }
-        });
-
-        setTitle("게시글 상세 - " + post.title);
-        setSize(600, 700);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setTitle("서울여대 꿀단지 - 게시글 상세");
+        setSize(800, 650); 
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(null);
         getContentPane().setBackground(BG_MAIN);
 
         initUI();
+
         setVisible(true);
     }
 
-    // 현재 로그인한 사람의 표시 이름(닉네임 > 이름)
     private String resolveDisplayName(Member m) {
         if (m == null) return null;
         if (m.getNickname() != null && !m.getNickname().trim().isEmpty()) {
@@ -129,47 +102,65 @@ public class CommunityDetailFrame extends JFrame {
         return m.getName();
     }
 
-    // ====== UI 구성 ======
     private void initUI() {
+        // 1. 헤더 패널 (높이 60)
+        JPanel headerPanel = new JPanel(null);
+        headerPanel.setBounds(0, 0, 800, 60);
+        headerPanel.setBackground(HEADER_YELLOW);
+        add(headerPanel);
 
-        // 1. 헤더
-        JPanel header = new JPanel(new BorderLayout());
-        header.setBounds(0, 0, 600, 50);
-        header.setBackground(HEADER_YELLOW);
-
-        JLabel title = new JLabel(" 커뮤니티 > 게시글 상세", JLabel.LEFT);
-        title.setFont(uiFont.deriveFont(18f));
+        JLabel title = new JLabel(" 게시글 상세", JLabel.LEFT);
+        title.setFont(uiFont.deriveFont(24f));
         title.setForeground(BROWN);
-        header.add(title, BorderLayout.WEST);
-        add(header);
+        title.setBounds(40, 10, 300, 40);
+        headerPanel.add(title);
 
-        // 2. 게시글 정보
+        JButton backBtn = createStyledButton("이전으로", 100, 40);
+        backBtn.setBackground(BROWN); 
+        backBtn.setForeground(Color.WHITE);
+        backBtn.setBounds(650, 10, 100, 40);
+        backBtn.addActionListener(e -> {
+            new CommunityFrame(); 
+            dispose();            
+        });
+        headerPanel.add(backBtn);
+
+        // 2. 바디 패널
+        JPanel bodyPanel = new JPanel(null);
+        bodyPanel.setBounds(0, 60, 800, 590);
+        bodyPanel.setBackground(BG_MAIN);
+        add(bodyPanel);
+
+        // (1) 게시글 정보 박스 [위치 조정: Y 20 -> 10, 높이 80 -> 75]
         JPanel infoPanel = new JPanel(null);
-        infoPanel.setBounds(20, 70, 545, 100);
+        infoPanel.setBounds(40, 10, 710, 75); 
         infoPanel.setBackground(Color.WHITE);
         infoPanel.setBorder(new RoundedBorder(15, BORDER_COLOR, 2));
+        bodyPanel.add(infoPanel);
 
+        // 제목
         postTitle = new JLabel(currentPost.title);
-        postTitle.setFont(uiFont.deriveFont(Font.BOLD, 22f));
-        postTitle.setBounds(20, 15, 500, 30);
+        postTitle.setFont(uiFont.deriveFont(Font.BOLD, 20f));
+        postTitle.setForeground(BROWN);
+        postTitle.setBounds(20, 12, 550, 30); // Y조정
         infoPanel.add(postTitle);
 
+        // 작성자 및 날짜
         writerInfo = new JLabel("작성자: " + currentPost.writer + "  |  " + currentPost.date);
         writerInfo.setFont(uiFont.deriveFont(14f));
         writerInfo.setForeground(Color.GRAY);
-        writerInfo.setBounds(20, 55, 350, 20);
+        writerInfo.setBounds(20, 42, 400, 20); // Y조정
         infoPanel.add(writerInfo);
 
+        // 좋아요 수
         likeLabel = new JLabel(" " + currentPost.likes);
         if (heartIcon != null) likeLabel.setIcon(heartIcon);
         likeLabel.setFont(uiFont.deriveFont(16f));
         likeLabel.setForeground(new Color(255, 100, 100));
-        likeLabel.setBounds(450, 55, 80, 20);
+        likeLabel.setBounds(600, 27, 100, 20); // Y조정
         infoPanel.add(likeLabel);
 
-        add(infoPanel);
-
-        // 3. 본문
+        // (2) 본문 영역 [위치 조정: Y 115 -> 95]
         contentArea = new JTextArea(currentPost.content);
         contentArea.setFont(uiFont.deriveFont(16f));
         contentArea.setLineWrap(true);
@@ -178,49 +169,36 @@ public class CommunityDetailFrame extends JFrame {
         contentArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         JScrollPane contentScroll = new JScrollPane(contentArea);
-        contentScroll.setBounds(20, 180, 545, 200);
-        contentScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
-        add(contentScroll);
+        contentScroll.setBounds(40, 95, 710, 200); // Y를 위로 당김
+        contentScroll.setBorder(new RoundedBorder(10, BORDER_COLOR, 1));
+        bodyPanel.add(contentScroll);
 
-        // 4. 컨트롤 바 (좋아요 + 수정/삭제)
+        // (3) 컨트롤 바 [위치 조정: Y 325 -> 305]
         JPanel controlBar = new JPanel(null);
-        controlBar.setBounds(20, 395, 545, 55);
+        controlBar.setBounds(40, 305, 710, 50); 
         controlBar.setOpaque(false);
+        bodyPanel.add(controlBar);
 
-        int likeBtnWidth = 140;
-        int likeBtnHeight = 50;
-        int likeBtnX = (545 - likeBtnWidth) / 2;
-        int likeBtnY = (55 - likeBtnHeight) / 2;
-
-        likeBtn = createStyledButton(" 좋아요", likeBtnWidth, likeBtnHeight);
+        likeBtn = createStyledButton(" 좋아요", 120, 40);
         if (heartIcon != null) likeBtn.setIcon(heartIcon);
         likeBtn.setBackground(Color.WHITE);
         likeBtn.setForeground(new Color(255, 100, 100));
-        likeBtn.setBounds(likeBtnX, likeBtnY, likeBtnWidth, likeBtnHeight);
+        likeBtn.setBounds(0, 5, 120, 40);
         likeBtn.addActionListener(e -> handleLikeAction(likeLabel));
-
-        // 이미 좋아요한 글이면 버튼 색만 살짝 바꿔줌
-        if (isLiked) {
-            likeBtn.setBackground(new Color(255, 240, 240));
-        }
-
+        if (isLiked) likeBtn.setBackground(new Color(255, 240, 240));
         controlBar.add(likeBtn);
-
-        // ✏️ 작성자일 때만 수정/삭제 링크
+        
         if (isMyPost()) {
-            JPanel editDeletePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+            JPanel editDeletePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
             editDeletePanel.setOpaque(false);
+            editDeletePanel.setBounds(490, 5, 220, 40);
 
             JLabel editLink = createTextLink("수정");
             editLink.addMouseListener(new MouseAdapter() {
                 @Override
                 public void mouseClicked(MouseEvent e) {
-                    if (parentFrame != null) {
-                        new CommunityWriteFrame(currentUser, parentFrame,
-                                currentPost, CommunityDetailFrame.this);
-                    } else {
-                        showCustomAlertPopup("오류", "부모 프레임 참조가 없어 수정할 수 없습니다.");
-                    }
+                    new CommunityWriteFrame(currentUser, currentPost);
+                    dispose();
                 }
             });
 
@@ -230,102 +208,86 @@ public class CommunityDetailFrame extends JFrame {
                 @Override
                 public void mouseClicked(MouseEvent e) {
                     showCustomConfirmPopup("게시글을 삭제하시겠습니까?", () -> {
-                        if (parentFrame != null) {
-                            parentFrame.deletePost(currentPost);
+                        dao.deletePost(currentPost.no);
+                        showCustomAlertPopup("삭제 완료", "게시글이 삭제되었습니다.", () -> {
+                            new CommunityFrame(); 
                             dispose();
-                        } else {
-                            showCustomAlertPopup("오류", "부모 프레임 참조가 없어 삭제할 수 없습니다.");
-                        }
+                        });
                     });
                 }
             });
 
             editDeletePanel.add(editLink);
-            editDeletePanel.add(new JLabel(" "));
+            editDeletePanel.add(new JLabel("|"));
             editDeletePanel.add(deleteLink);
-
-            editDeletePanel.setBounds(400, 15, 145, 30);
             controlBar.add(editDeletePanel);
         }
 
-        add(controlBar);
-
-        // 5. 댓글 영역 타이틀
+        // (4) 댓글 제목 [위치 조정: Y 375 -> 355]
         commentTitle = new JLabel(" 댓글 (0)");
         commentTitle.setFont(uiFont.deriveFont(16f));
         commentTitle.setForeground(BROWN);
-        commentTitle.setBounds(25, 460, 150, 25);
-        add(commentTitle);
+        commentTitle.setBounds(40, 355, 150, 25);
+        bodyPanel.add(commentTitle);
 
-        // 6. 댓글 목록 (DB에서 로드)
+        // (5) 댓글 리스트 [위치 조정: Y 405 -> 385]
         commentModel = new DefaultListModel<>();
-        loadCommentsFromDB();   // DB 연동
+        loadCommentsFromDB();
 
         JList<String> commentList = new JList<>(commentModel);
         commentList.setFont(uiFont.deriveFont(14f));
         commentList.setCellRenderer(new CommentListRenderer(currentPost.writer));
 
         JScrollPane commentScroll = new JScrollPane(commentList);
-        commentScroll.setBounds(20, 490, 545, 100);
-        commentScroll.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
-        add(commentScroll);
+        commentScroll.setBounds(40, 385, 710, 100); 
+        commentScroll.setBorder(new RoundedBorder(10, BORDER_COLOR, 1));
+        bodyPanel.add(commentScroll);
 
-        // 7. 댓글 입력
+        // (6) 댓글 입력창 [위치 조정: Y 515 -> 495]
+        // 전체 높이가 650(바디 590)이므로, Y=495 + H=40 = 535 (여유 공간 충분)
         JTextField commentInput = new JTextField();
-        commentInput.setBounds(20, 600, 430, 40);
+        commentInput.setBounds(40, 495, 600, 40);
         commentInput.setFont(uiFont.deriveFont(14f));
-        add(commentInput);
+        commentInput.setBorder(BorderFactory.createCompoundBorder(
+                new RoundedBorder(10, BORDER_COLOR, 1),
+                BorderFactory.createEmptyBorder(0, 10, 0, 10)
+        ));
+        bodyPanel.add(commentInput);
 
+        // 등록 버튼 [위치 조정]
         JButton addCommentBtn = createStyledButton("등록", 100, 40);
-        addCommentBtn.setBounds(465, 600, 100, 40);
-        addCommentBtn.addActionListener(e -> {
+        addCommentBtn.setBackground(BROWN);
+        addCommentBtn.setForeground(Color.WHITE);
+        addCommentBtn.setBounds(650, 495, 100, 40);
+        
+        ActionListener submitAction = e -> {
             String text = commentInput.getText().trim();
             if (text.isEmpty()) return;
 
             Member m = LoginSession.getUser();
             if (m == null) {
-                showCustomAlertPopup("오류", "로그인 정보가 없어 댓글을 달 수 없습니다.");
+                showCustomAlertPopup("오류", "로그인 후 댓글을 작성할 수 있습니다.");
                 return;
             }
 
-            // ✅ 닉네임 있으면 닉네임, 없으면 실명
-            String writerNickname;
-            if (m.getNickname() != null && !m.getNickname().trim().isEmpty()) {
-                writerNickname = m.getNickname().trim();
-            } else {
-                writerNickname = m.getName();
-            }
+            String writerNickname = (m.getNickname() != null && !m.getNickname().isBlank()) ? m.getNickname() : m.getName();
+            dao.insertComment(currentPost.no, m.getHakbun(), writerNickname, text);
 
-            // DB 저장
-            dao.insertComment(
-                    currentPost.no,
-                    m.getHakbun(),
-                    writerNickname,
-                    text
-            );
-
-            // 다시 로드해서 갱신
             loadCommentsFromDB();
             commentInput.setText("");
-            
-
-        });
-// ... (기존 addCommentBtn 리스너 코드 끝)
+        };
         
-        // 💡 [여기 붙여넣기] 엔터키(Enter) 누르면 '등록' 버튼 클릭 처리
+        addCommentBtn.addActionListener(submitAction);
+        
         commentInput.addKeyListener(new KeyAdapter() {
-            @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    addCommentBtn.doClick(); // 등록 버튼을 강제로 클릭
-                }
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) addCommentBtn.doClick();
             }
         });
-
-        add(addCommentBtn); // (이 줄은 원래 있던 코드입니다)
+        
+        bodyPanel.add(addCommentBtn);
     }
 
-    // 내가 쓴 글인지 확인
     private boolean isMyPost() {
         if (currentPost == null || currentPost.writer == null) return false;
         if (currentUser == null) currentUser = resolveDisplayName(loginMember);
@@ -333,113 +295,80 @@ public class CommunityDetailFrame extends JFrame {
         return currentPost.writer.trim().equals(currentUser.trim());
     }
 
-    // ====== 댓글 DB에서 로드 ======
     private void loadCommentsFromDB() {
         commentModel.clear();
         try {
             List<CommunityDAO.CommentDTO> list = dao.getCommentsByPostId(currentPost.no);
             for (CommunityDAO.CommentDTO c : list) {
-                // "닉네임:내용" 형태로 저장 → 렌더러에서 분리해서 씀
                 commentModel.addElement(c.writerNickname + ":" + c.content);
             }
             currentPost.comments = list.size();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) {}
 
         if (commentTitle != null) {
             commentTitle.setText(" 댓글 (" + commentModel.getSize() + ")");
         }
     }
 
-    // ====== 좋아요 처리 (DB 연동) ======
     private void handleLikeAction(JLabel likeLabel) {
-        // 로그인 체크
         if (loginMember == null) {
             showCustomAlertPopup("알림", "로그인 후 이용할 수 있습니다.");
             return;
         }
-
-        // 이미 눌렀으면 막기
         if (isLiked) {
             showCustomAlertPopup("알림", "이미 좋아요를 누른 게시글입니다.");
             return;
         }
-
         try {
-            // DB에 좋아요 기록 추가
             dao.addLike(currentPost.no, currentHakbun);
-
-            // 다시 DB에서 카운트 가져와서 반영
             int newCount = dao.getLikeCount(currentPost.no);
             currentPost.likes = newCount;
             likeLabel.setText(" " + newCount);
-
             isLiked = true;
             likeBtn.setBackground(new Color(255, 240, 240));
-
             showCustomAlertPopup("좋아요", "이 글을 좋아합니다!");
         } catch (Exception e) {
-            e.printStackTrace();
             showCustomAlertPopup("오류", "좋아요 처리 중 문제가 발생했습니다.");
         }
     }
-
-    // ====== 수정 완료 후 내용 업데이트 ======
+    
     public void updatePostContent(Post updatedPost) {
         this.currentPost = updatedPost;
         postTitle.setText(updatedPost.title);
         writerInfo.setText("작성자: " + updatedPost.writer + "  |  " + updatedPost.date);
         contentArea.setText(updatedPost.content);
-        getContentPane().revalidate();
-        getContentPane().repaint();
+        revalidate(); repaint();
     }
 
-    // ====== 텍스트 링크 ======
     private JLabel createTextLink(String text) {
-        String underlineColor = toHexString(BROWN);
-
-        JLabel label = new JLabel(
-                "<html><body style='color:" + toHexString(BROWN) + ";'>"
-                        + "<font face='" + FONT_NAME_HTML + "'>"
-                        + "<u style='text-decoration-color: " + underlineColor + ";'>"
-                        + text + "</u>"
-                        + "</font></body></html>"
-        );
+        JLabel label = new JLabel(text);
         label.setFont(uiFont.deriveFont(14f));
         label.setForeground(BROWN);
         label.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        label.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { label.setText("<html><u>" + text + "</u></html>"); }
+            public void mouseExited(MouseEvent e) { label.setText(text); }
+        });
         return label;
     }
 
-    private String toHexString(Color c) {
-        return String.format("#%02x%02x%02x", c.getRed(), c.getGreen(), c.getBlue());
-    }
-
-    // ====== 댓글 렌더러 ======
     class CommentListRenderer extends JPanel implements ListCellRenderer<String> {
-        String postWriter;
         private JLabel nameLabel = new JLabel();
         private JLabel contentLabel = new JLabel();
 
         public CommentListRenderer(String writer) {
-            this.postWriter = writer;
             setLayout(new FlowLayout(FlowLayout.LEFT, 5, 0));
             setOpaque(true);
-
             nameLabel.setFont(uiFont.deriveFont(Font.BOLD, 14f));
             contentLabel.setFont(uiFont.deriveFont(14f));
-
             add(nameLabel);
             add(contentLabel);
             setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
         }
 
         @Override
-        public Component getListCellRendererComponent(
-                JList<? extends String> list, String value, int index,
-                boolean isSelected, boolean cellHasFocus) {
-
+        public Component getListCellRendererComponent(JList<? extends String> list, String value, int index, boolean isSelected, boolean cellHasFocus) {
             Color bg = isSelected ? list.getSelectionBackground() : list.getBackground();
             setBackground(bg);
             nameLabel.setBackground(bg);
@@ -458,24 +387,10 @@ public class CommunityDetailFrame extends JFrame {
                 nameLabel.setText(name);
                 nameLabel.setForeground(BROWN);
             }
-
             contentLabel.setText(" : " + content);
             contentLabel.setForeground(BROWN);
-
             return this;
         }
-    }
-
-    // ====== 공통 버튼 / 팝업 / 테두리 ======
-    private JButton createStyledButton(String text, int w, int h) {
-        JButton btn = new JButton(text);
-        btn.setFont(uiFont.deriveFont(14f));
-        btn.setBackground(BROWN);
-        btn.setForeground(Color.WHITE);
-        btn.setFocusPainted(false);
-        btn.setBorder(new RoundedBorder(15, BROWN, 1));
-        btn.setPreferredSize(new Dimension(w, h));
-        return btn;
     }
 
     private JPanel createPopupPanel() {
@@ -483,8 +398,7 @@ public class CommunityDetailFrame extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                        RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(POPUP_BG);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
                 g2.setColor(BROWN);
@@ -501,10 +415,15 @@ public class CommunityDetailFrame extends JFrame {
         btn.setForeground(Color.WHITE);
         btn.setFocusPainted(false);
         btn.setBorder(new RoundedBorder(15, BROWN, 1));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
     }
 
     private void showCustomAlertPopup(String title, String message) {
+        showCustomAlertPopup(title, message, null);
+    }
+    
+    private void showCustomAlertPopup(String title, String message, Runnable onOk) {
         JDialog dialog = new JDialog(this, title, true);
         dialog.setUndecorated(true);
         dialog.setBackground(new Color(0, 0, 0, 0));
@@ -518,14 +437,16 @@ public class CommunityDetailFrame extends JFrame {
         JLabel msgLabel = new JLabel(message, SwingConstants.CENTER);
         msgLabel.setFont(uiFont.deriveFont(16f));
         msgLabel.setForeground(BROWN);
-        msgLabel.setBounds(20, 80, 360, 30);
+        msgLabel.setBounds(20, 60, 360, 80);
         panel.add(msgLabel);
 
         JButton okBtn = createPopupBtn("확인");
         okBtn.setBounds(135, 160, 130, 45);
-        okBtn.addActionListener(e -> dialog.dispose());
+        okBtn.addActionListener(e -> {
+            dialog.dispose();
+            if(onOk != null) onOk.run();
+        });
         panel.add(okBtn);
-
         dialog.setVisible(true);
     }
 
@@ -558,36 +479,28 @@ public class CommunityDetailFrame extends JFrame {
         noBtn.setBounds(220, 150, 120, 45);
         noBtn.addActionListener(e -> dialog.dispose());
         panel.add(noBtn);
-
         dialog.setVisible(true);
     }
 
+    private JButton createStyledButton(String text, int w, int h) {
+        JButton btn = new JButton(text);
+        btn.setFont(uiFont.deriveFont(14f));
+        btn.setBackground(BROWN);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorder(new RoundedBorder(15, BROWN, 1));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
     private static class RoundedBorder implements Border {
-        private int radius;
-        private Color color;
-        private int thickness;
-
-        public RoundedBorder(int r, Color c, int t) {
-            radius = r;
-            color = c;
-            thickness = t;
-        }
-
-        @Override
-        public Insets getBorderInsets(Component c) {
-            return new Insets(radius / 2, radius / 2, radius / 2, radius / 2);
-        }
-
-        @Override
-        public boolean isBorderOpaque() {
-            return false;
-        }
-
-        @Override
+        private int radius; private Color color; private int thickness;
+        public RoundedBorder(int r, Color c, int t) { radius = r; color = c; thickness = t; }
+        public Insets getBorderInsets(Component c) { return new Insets(radius/2, radius/2, radius/2, radius/2); }
+        public boolean isBorderOpaque() { return false; }
         public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {
             Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(color);
             g2.setStroke(new BasicStroke(thickness));
             g2.drawRoundRect(x, y, w - 1, h - 1, radius, radius);

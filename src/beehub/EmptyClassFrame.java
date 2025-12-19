@@ -57,7 +57,7 @@ public class EmptyClassFrame extends JFrame {
 
     public EmptyClassFrame() {
         setTitle("서울여대 꿀단지 - 빈 강의실 찾기");
-        setSize(800, 600);
+        setSize(800, 650);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(null);
@@ -92,8 +92,6 @@ public class EmptyClassFrame extends JFrame {
                 allRooms.add(new ClassRoom(building, roomName, new ArrayList<>()));
             }
 
-            System.out.println("[빈강의실] 강의실 개수: " + allRooms.size());
-
         } catch (SQLException e) {
             e.printStackTrace();
             showSimplePopup("DB 오류",
@@ -101,11 +99,6 @@ public class EmptyClassFrame extends JFrame {
         }
     }
 
-    /**
-     * ✅ 선택한 날짜의 요일 기준으로
-     * class_timetable 에 있는 수업 시간들을 읽어와
-     * 각 ClassRoom 의 occupiedHours 리스트를 채우는 메서드
-     */
     private void loadOccupiedHoursForDate(LocalDate date) {
         // 기존 점유 시간 싹 비우기
         for (ClassRoom room : allRooms) {
@@ -140,7 +133,6 @@ public class EmptyClassFrame extends JFrame {
             count++;
         }
 
-        System.out.println("[빈강의실] " + date + " 강의 일정 레코드: " + count + "건");
     }
 
     private void initHeader() {
@@ -329,14 +321,11 @@ public class EmptyClassFrame extends JFrame {
         // 이 날짜의 강의 시간표로 occupiedHours 갱신
         loadOccupiedHoursForDate(date);
 
-        // 디버그: 현재 점유 상태
-        System.out.println("==== [" + date + "] 점유 시간 상태 ====");
         for (ClassRoom room : allRooms) {
             if (!room.occupiedHours.isEmpty()) {
-                System.out.println(" " + room.buildingName + " " + room.roomNo + " -> " + room.occupiedHours);
+
             }
         }
-        System.out.println("선택 시간: " + selectedHour + "시, 선택 건물: " + selectedBuilding);
 
         boolean found = false;
 
@@ -349,9 +338,7 @@ public class EmptyClassFrame extends JFrame {
 
             // 이 시간에 수업이 있으면 제외
             if (room.occupiedHours.contains(selectedHour)) {
-                System.out.println("수업 중 → 테이블에서 제외: "
-                        + room.buildingName + " " + room.roomNo
-                        + " (점유시간=" + room.occupiedHours + ")");
+
                 continue;
             }
 

@@ -6,7 +6,6 @@ import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.InputStream;
-import java.sql.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -30,7 +29,7 @@ public class MainFrame extends JFrame {
     private static final Color POPUP_BG         = new Color(255, 250, 205);
 
     private static Font uiFont;
-    
+
     // 폰트 로드 및 등록
     static {
         try {
@@ -53,7 +52,8 @@ public class MainFrame extends JFrame {
 
     // UI 컴포넌트
     private JLabel todayHeaderLabel;
-    private JPanel todayContentPanel; 
+    private JPanel todayContentPanel;
+    private JScrollPane todayScrollPane;   // ✅ 추가: TODAY 스크롤
     private JPanel todayPanel;
     private JPanel futureListPanel;
 
@@ -169,21 +169,18 @@ public class MainFrame extends JFrame {
             beeLabel.setText("🐝");
             beeLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
         }
-        
-        // [수정] y좌표 상향 조정 (30 -> 15)
+
         beeLabel.setBounds(60, 15, 60, 60);
         contentPanel.add(beeLabel);
 
         JLabel titleLabel = new JLabel("일정 알리비");
         titleLabel.setFont(uiFont.deriveFont(28f));
         titleLabel.setForeground(BROWN);
-        // [수정] y좌표 상향 조정 (40 -> 25)
         titleLabel.setBounds(130, 25, 250, 40);
         contentPanel.add(titleLabel);
 
         todayPanel = new JPanel(null);
-        // [수정] y좌표 상향 조정 (100 -> 85)
-        todayPanel.setBounds(50, 85, 800, 150); 
+        todayPanel.setBounds(50, 85, 800, 150);
         todayPanel.setBackground(Color.WHITE);
         todayPanel.setBorder(new RoundedBorder(20, BROWN, 2));
         contentPanel.add(todayPanel);
@@ -199,11 +196,28 @@ public class MainFrame extends JFrame {
         todayHeaderLabel.setBounds(20, 10, 300, 25);
         todayHeader.add(todayHeaderLabel);
 
+        // ✅ TODAY 내용 패널 (BoxLayout) + 스크롤 적용
         todayContentPanel = new JPanel();
         todayContentPanel.setLayout(new BoxLayout(todayContentPanel, BoxLayout.Y_AXIS));
-        todayContentPanel.setBounds(20, 60, 760, 80);
-        todayContentPanel.setOpaque(false);
-        todayPanel.add(todayContentPanel);
+        todayContentPanel.setOpaque(false); // 배경은 todayPanel이 담당
+
+        todayScrollPane = new JScrollPane(
+                todayContentPanel,
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        // 헤더(40) 아래 영역: y=50부터 적당히 넉넉하게
+        todayScrollPane.setBounds(20, 50, 760, 90);
+        todayScrollPane.setBorder(null);
+        todayScrollPane.setOpaque(false);
+        todayScrollPane.getViewport().setOpaque(false);
+
+        // 커스텀 스크롤바 적용 (TODAY에도)
+        todayScrollPane.getVerticalScrollBar().setUI(new HoneyScrollBarUI());
+        todayScrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
+        todayScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        todayPanel.add(todayScrollPane);
 
         // 2. 하단: 미래 일정 리스트 (Scroll)
         futureListPanel = new JPanel();
@@ -211,15 +225,14 @@ public class MainFrame extends JFrame {
         futureListPanel.setBackground(Color.WHITE);
 
         JScrollPane scrollPane = new JScrollPane(futureListPanel);
-        // [수정] y좌표 상향 조정 (270 -> 255), 높이 확장 (220 -> 240)
-        scrollPane.setBounds(50, 255, 800, 240); 
+        scrollPane.setBounds(50, 255, 800, 240);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        
+
         // 커스텀 스크롤바 적용
         scrollPane.getVerticalScrollBar().setUI(new HoneyScrollBarUI());
         scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
-        
+
         contentPanel.add(scrollPane);
     }
 
@@ -264,7 +277,7 @@ public class MainFrame extends JFrame {
                 JLabel itemLabel = new JLabel();
                 itemLabel.setFont(uiFont.deriveFont(18f));
                 itemLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-                
+
                 if (item.type.equals("RENTAL")) {
                     itemLabel.setText("[물품] '" + item.title + "' 반납일입니다!");
                     itemLabel.setForeground(Color.gray);
@@ -272,11 +285,11 @@ public class MainFrame extends JFrame {
                     itemLabel.setText("- [행사] " + item.title);
                     itemLabel.setForeground(Color.gray);
                 }
-                
+
                 todayContentPanel.add(itemLabel);
                 todayContentPanel.add(Box.createVerticalStrut(5));
                 hasToday = true;
-            } 
+            }
             // (2) 미래 일정
             else if (item.date.isAfter(today)) {
                 addFutureItemRow(item);
@@ -300,10 +313,16 @@ public class MainFrame extends JFrame {
             futureListPanel.add(emptyLabel);
         }
 
+        // ✅ 스크롤 높이 반영
         todayContentPanel.revalidate();
         todayContentPanel.repaint();
         futureListPanel.revalidate();
         futureListPanel.repaint();
+
+        // ✅ TODAY 스크롤을 항상 위로 올리고 싶으면(선택)
+        if (todayScrollPane != null) {
+            SwingUtilities.invokeLater(() -> todayScrollPane.getVerticalScrollBar().setValue(0));
+        }
     }
 
     private void addFutureItemRow(ScheduleItem item) {
@@ -326,7 +345,7 @@ public class MainFrame extends JFrame {
         } else {
             contentText = item.title;
         }
-        
+
         JLabel contentLabel = new JLabel(contentText);
         contentLabel.setFont(uiFont.deriveFont(18f));
         contentLabel.setForeground(Color.BLACK);
@@ -336,7 +355,7 @@ public class MainFrame extends JFrame {
         row.add(contentLabel);
 
         futureListPanel.add(row);
-        
+
         JSeparator sep = new JSeparator();
         sep.setMaximumSize(new Dimension(780, 1));
         sep.setForeground(new Color(240, 240, 240));
@@ -469,8 +488,8 @@ public class MainFrame extends JFrame {
     private static class HoneyScrollBarUI extends BasicScrollBarUI {
         @Override
         protected void configureScrollBarColors() {
-            this.thumbColor = BROWN; 
-            this.trackColor = new Color(250, 250, 250); 
+            this.thumbColor = BROWN;
+            this.trackColor = new Color(250, 250, 250);
         }
 
         @Override
@@ -497,18 +516,18 @@ public class MainFrame extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(BROWN);
-            // 둥근 모서리 (Arc 10)
-            g2.fillRoundRect(thumbBounds.x + 1, thumbBounds.y + 1, thumbBounds.width - 2, thumbBounds.height - 2, 10, 10);
+            g2.fillRoundRect(thumbBounds.x + 1, thumbBounds.y + 1,
+                    thumbBounds.width - 2, thumbBounds.height - 2, 10, 10);
             g2.dispose();
         }
 
         @Override
         protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-            g.setColor(new Color(250, 250, 250)); // 아주 연한 회색 배경
+            g.setColor(new Color(250, 250, 250));
             g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
         }
     }
-    
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(MainFrame::new);
     }

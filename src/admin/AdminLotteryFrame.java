@@ -264,14 +264,13 @@ public class AdminLotteryFrame extends JFrame {
             return;
         }
 
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
-                "[" + r.name + "] 추첨을 시작하시겠습니까?\n총 " + r.winnerCount + "명 선정",
-                "확인",
-                JOptionPane.YES_NO_OPTION
+        boolean confirm = showConfirmPopup(
+                "",
+                "[" + r.name + "] \n추첨을 시작하시겠습니까?\n(총 " + r.winnerCount + "명 선정)"
         );
 
-        if (confirm != JOptionPane.YES_OPTION) return;
+        if (!confirm) return;
+
 
         if (r.applicants.isEmpty()) {
             showMsgPopup("알림", "응모자가 없습니다.");
@@ -349,9 +348,119 @@ public class AdminLotteryFrame extends JFrame {
         okBtn.setFocusPainted(false);
         okBtn.addActionListener(e -> dialog.dispose());
         panel.add(okBtn);
+        
+
 
         dialog.setVisible(true);
     }
+    
+ // ✅ 예/아니오 확인 팝업 (우리 UI)
+    private boolean showConfirmPopup(String title, String msg) {
+        final boolean[] result = { false };
+
+        JDialog dialog = new JDialog(this, title, true);
+        dialog.setUndecorated(true);
+        dialog.setSize(430, 260);
+        dialog.setLocationRelativeTo(this);
+        dialog.setBackground(new Color(0, 0, 0, 0));
+
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // 배경
+                g2.setColor(POPUP_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+
+                // 테두리
+                g2.setColor(BROWN);
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(1, 1, getWidth() - 3, getHeight() - 3, 30, 30);
+            }
+        };
+        panel.setLayout(null);
+        dialog.add(panel);
+
+        // 제목
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(uiFont.deriveFont(Font.BOLD, 18f));
+        titleLabel.setForeground(BROWN);
+        titleLabel.setBounds(25, 18, 320, 30);
+        panel.add(titleLabel);
+
+        // 닫기(X)
+        JButton closeBtn = new JButton("X");
+        closeBtn.setFont(uiFont.deriveFont(Font.BOLD, 16f));
+        closeBtn.setForeground(BROWN);
+        closeBtn.setBackground(new Color(0, 0, 0, 0));
+        closeBtn.setOpaque(false);
+        closeBtn.setContentAreaFilled(false);
+        closeBtn.setBorderPainted(false);
+        closeBtn.setFocusPainted(false);
+        closeBtn.setBounds(385, 10, 35, 35);
+        closeBtn.addActionListener(e -> {
+            result[0] = false;
+            dialog.dispose();
+        });
+        panel.add(closeBtn);
+
+        // 메시지 (가운데 정렬)
+        JTextPane msgPane = new JTextPane();
+        msgPane.setText(msg);
+        msgPane.setFont(uiFont.deriveFont(17f));
+        msgPane.setForeground(BROWN);
+        msgPane.setOpaque(false);
+        msgPane.setEditable(false);
+
+        javax.swing.text.StyledDocument doc = msgPane.getStyledDocument();
+        javax.swing.text.SimpleAttributeSet center = new javax.swing.text.SimpleAttributeSet();
+        javax.swing.text.StyleConstants.setAlignment(center, javax.swing.text.StyleConstants.ALIGN_CENTER);
+        doc.setParagraphAttributes(0, doc.getLength(), center, false);
+
+        msgPane.setBounds(25, 65, 380, 90);
+        panel.add(msgPane);
+
+        // 버튼들
+        JButton yesBtn = new JButton("예");
+        yesBtn.setFont(uiFont.deriveFont(16f));
+        yesBtn.setBackground(BLUE_BTN);
+        yesBtn.setForeground(Color.WHITE);
+        yesBtn.setBorder(new RoundedBorder(15, BLUE_BTN));
+        yesBtn.setFocusPainted(false);
+        yesBtn.setBounds(85, 175, 120, 45);
+        yesBtn.addActionListener(e -> {
+            result[0] = true;
+            dialog.dispose();
+        });
+        panel.add(yesBtn);
+
+        JButton noBtn = new JButton("아니오");
+        noBtn.setFont(uiFont.deriveFont(16f));
+        noBtn.setBackground(BROWN);
+        noBtn.setForeground(Color.WHITE);
+        noBtn.setBorder(new RoundedBorder(15, BROWN));
+        noBtn.setFocusPainted(false);
+        noBtn.setBounds(225, 175, 120, 45);
+        noBtn.addActionListener(e -> {
+            result[0] = false;
+            dialog.dispose();
+        });
+        panel.add(noBtn);
+
+        // ✅ Enter=예 / ESC=아니오
+        dialog.getRootPane().setDefaultButton(yesBtn);
+        dialog.getRootPane().registerKeyboardAction(
+                e -> noBtn.doClick(),
+                KeyStroke.getKeyStroke("ESCAPE"),
+                JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
+
+        dialog.setVisible(true);
+        return result[0];
+    }
+
 
     public void addRound(String title,
                          String prize,

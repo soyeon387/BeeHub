@@ -315,7 +315,7 @@ public class AdminSpaceManageFrame extends JFrame {
                         "아직 미입실 처리를 할 수 없습니다.\n" +
                         "예약 시작 10분 후 (" +
                         cancelAllowedTime.format(DateTimeFormatter.ofPattern("HH:mm")) +
-                        ") 부터 처리 가능합니다.";
+                        ") 부터 \n처리 가능합니다.";
                     showMsgPopup("처리 불가", msg);
                     return;
                 }

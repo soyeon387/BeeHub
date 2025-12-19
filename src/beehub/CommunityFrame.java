@@ -6,7 +6,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.JTableHeader;
-import javax.swing.plaf.basic.BasicScrollBarUI;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.InputStream;
@@ -16,8 +15,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import beehub.CommunityDetailFrame;
-
 
 public class CommunityFrame extends JFrame {
 
@@ -37,6 +34,7 @@ public class CommunityFrame extends JFrame {
     private String userId = "";
     private int userPoint = 0;
 
+    // 폰트 로딩
     static {
         try {
             InputStream is = CommunityFrame.class.getResourceAsStream("/fonts/DNFBitBitv2.ttf");
@@ -63,11 +61,13 @@ public class CommunityFrame extends JFrame {
     private List<Post> filteredPosts = new ArrayList<>(); 
     private CommunityDAO communityDAO = new CommunityDAO();
     private int currentPage = 1;
+    
+    // ✅ 한 페이지에 보여줄 개수 (8개 고정)
     private final int itemsPerPage = 8; 
 
     public CommunityFrame() {
         setTitle("서울여대 꿀단지 - 커뮤니티");
-        setSize(850, 650);
+        setSize(850, 670);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(null);
@@ -92,14 +92,12 @@ public class CommunityFrame extends JFrame {
     
     private void loadPostsFromDB() {
         allPosts.clear();
-
         java.util.List<CommunityDAO.PostDTO> list = communityDAO.getAllPostsOrderByNewest();
         for (CommunityDAO.PostDTO dto : list) {
-            // Post(int no, String title, String writer, String date, int likes, int comments, String content)
             Post p = new Post(
                 dto.postId,
                 dto.title,
-                dto.writerNickname,   // 작성자 닉네임
+                dto.writerNickname,
                 dto.createdDate,
                 dto.likeCount,
                 dto.commentCount,
@@ -107,28 +105,21 @@ public class CommunityFrame extends JFrame {
             );
             allPosts.add(p);
         }
-        // 필터/테이블 갱신
         searchPosts();
     }
 
-    
     public void addPost(Post newPost) {
-        // DB에서 받아온 post_id가 이미 newPost.no 에 들어있다고 가정
-        allPosts.add(0, newPost);   // 맨 위에 추가
-        searchPosts();              // 목록 새로고침
+        allPosts.add(0, newPost);
+        searchPosts();
     }
-
     
     public void deletePost(Post postToDelete) {
-        // 1. DB에서 삭제
         if (postToDelete != null) {
-            communityDAO.deletePost(postToDelete.no);   // no = post_id
+            communityDAO.deletePost(postToDelete.no);
         }
-        // 2. 메모리 목록에서도 제거
         allPosts.remove(postToDelete);
         searchPosts(false);
     }
-
 
     private void loadImages() {
         try {
@@ -145,7 +136,7 @@ public class CommunityFrame extends JFrame {
 
     private void initHeader() {
         JPanel headerPanel = new JPanel(null);
-        headerPanel.setBounds(0, 0, 800, 80);
+        headerPanel.setBounds(0, 0, 850, 80);
         headerPanel.setBackground(HEADER_YELLOW);
         add(headerPanel);
 
@@ -155,14 +146,11 @@ public class CommunityFrame extends JFrame {
         logoLabel.setBounds(30, 20, 300, 40);
         headerPanel.add(logoLabel);
         
-        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); // 1. 마우스 올리면 손가락 모양으로 변경
-        logoLabel.addMouseListener(new MouseAdapter() {      // 2. 마우스 기능 추가
+        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); 
+        logoLabel.addMouseListener(new MouseAdapter() {      
             @Override
             public void mouseClicked(MouseEvent e) {
-                // 현재 창 닫기
                 dispose(); 
-                
-                // 메인 화면(MainFrame) 새로 열기
                 new MainFrame(); 
             }
         });
@@ -173,10 +161,9 @@ public class CommunityFrame extends JFrame {
         headerPanel.add(jarIcon);
 
         JPanel userInfoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 25));
-        userInfoPanel.setBounds(400, 0, 380, 80);
+        userInfoPanel.setBounds(450, 0, 380, 80);
         userInfoPanel.setOpaque(false);
 
-        
         JLabel userInfoText = new JLabel("[" + userName + "]님" +  " | 로그아웃");
         userInfoText.setFont(uiFont.deriveFont(14f));
         userInfoText.setForeground(BROWN);
@@ -194,7 +181,7 @@ public class CommunityFrame extends JFrame {
 
     private void initNav() {
         JPanel navPanel = new JPanel(new GridLayout(1, 6));
-        navPanel.setBounds(0, 80, 800, 50);
+        navPanel.setBounds(0, 80, 850, 50);
         navPanel.setBackground(NAV_BG);
         navPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(230, 230, 230)));
         add(navPanel);
@@ -208,13 +195,13 @@ public class CommunityFrame extends JFrame {
 
     private void initContent() {
         JPanel contentPanel = new JPanel(null);
-        contentPanel.setBounds(0, 130, 800, 520);
+        contentPanel.setBounds(0, 130, 850, 520);
         contentPanel.setBackground(BG_MAIN);
         add(contentPanel);
 
-        // 1. 상단 컨트롤 영역
+        // 1. 상단 컨트롤 영역 (검색 & 글쓰기)
         JPanel topContainer = new JPanel(new BorderLayout());
-        topContainer.setBounds(25, 20, 750, 60);
+        topContainer.setBounds(50, 20, 750, 60);
         topContainer.setBackground(BG_MAIN);
         topContainer.setOpaque(false);
 
@@ -230,8 +217,6 @@ public class CommunityFrame extends JFrame {
             BorderFactory.createEmptyBorder(2, 5, 2, 5)
         ));
         searchField.setPreferredSize(new Dimension(220, 35));
-        
-        // [수정] 엔터키 리스너 추가
         searchField.addActionListener(e -> searchPosts());
 
         JButton searchBtn = createStyledButton("검색", 70, 35);
@@ -250,16 +235,15 @@ public class CommunityFrame extends JFrame {
         JButton writeBtn = createStyledButton("글쓰기", 90, 40);
         writeBtn.setBackground(Color.WHITE); 
         writeBtn.setForeground(BROWN);
-        
         writeBtn.addActionListener(e -> {
-            new CommunityWriteFrame(userName, this);
+            new CommunityWriteFrame(userName);
+            dispose();
         });
         
         writePanel.add(writeBtn);
 
         topContainer.add(searchPanel, BorderLayout.WEST);
         topContainer.add(writePanel, BorderLayout.EAST);
-
         contentPanel.add(topContainer);
 
         // 2. 게시글 목록 테이블
@@ -272,64 +256,64 @@ public class CommunityFrame extends JFrame {
         postTable = new JTable(tableModel);
         styleTable(postTable);
         
+        // 컬럼 너비 설정
         postTable.getColumnModel().getColumn(0).setPreferredWidth(450); 
         postTable.getColumnModel().getColumn(1).setPreferredWidth(100); 
         postTable.getColumnModel().getColumn(2).setPreferredWidth(120); 
         postTable.getColumnModel().getColumn(3).setPreferredWidth(80);  
 
+        // 렌더러 설정
         postTable.getColumnModel().getColumn(0).setCellRenderer(new TitleCommentRenderer()); 
         if (heartIcon != null) {
             postTable.getColumnModel().getColumn(3).setCellRenderer(new IconTextRenderer(heartIcon)); 
         }
 
+        // 클릭 이벤트
         postTable.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int row = postTable.getSelectedRow();
                     if (row != -1) {
+                        // 빈 행 클릭 시 무시
+                        Object val = tableModel.getValueAt(row, 0);
+                        if (val instanceof String && ((String)val).isEmpty()) return;
 
-                        // ✅ 현재 페이지 기준으로 실제 인덱스 계산
+                        // 현재 페이지 기준 인덱스 계산
                         int index = (currentPage - 1) * itemsPerPage + row;
-                        if (index < 0 || index >= filteredPosts.size()) {
-                            return;
-                        }
+                        if (index < 0 || index >= filteredPosts.size()) return;
 
                         Post selectedPost = filteredPosts.get(index);
-
                         if (selectedPost != null) {
-                            CommunityDetailFrame detailFrame =
-                                new CommunityDetailFrame(selectedPost, heartIcon, userName, CommunityFrame.this);
-
-                            detailFrame.addWindowListener(new WindowAdapter() {
-                                @Override
-                                public void windowClosed(WindowEvent e2) {
-                                    searchPosts(false);
-                                }
-                            });
+                            new CommunityDetailFrame(selectedPost, heartIcon, userName, CommunityFrame.this);
+                            dispose();
                         }
                     }
                 }
             }
         });
 
-
+        // ✅ [수정] 스크롤 패널을 고정된 테이블 뷰어처럼 설정
         JScrollPane scrollPane = new JScrollPane(postTable);
-        scrollPane.setBounds(25, 90, 750, 310);
+        
+        // 높이 계산: Header(40) + Row(40 * 8 = 320) + 여유(2) = 362
+        scrollPane.setBounds(50, 90, 750, 362); 
         scrollPane.setBorder(BorderFactory.createLineBorder(BORDER_COLOR));
         scrollPane.getViewport().setBackground(Color.WHITE);
         
-        scrollPane.getVerticalScrollBar().setUI(new ModernScrollBarUI());
-        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
-        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        // 스크롤바 숨김 & 마우스 휠 비활성화 (완벽한 고정 뷰)
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+        scrollPane.setWheelScrollingEnabled(false); 
 
         contentPanel.add(scrollPane);
 
         // 3. 페이지네이션 패널
         pagePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
-        pagePanel.setBounds(25, 410, 750, 40);
+        // 테이블 바로 아래 (90 + 362 = 452, 여유 줘서 460)
+        pagePanel.setBounds(50, 460, 750, 40);
         pagePanel.setBackground(BG_MAIN);
         contentPanel.add(pagePanel);
 
+        // 초기 데이터 로드
         searchPosts();
     }
     
@@ -338,10 +322,6 @@ public class CommunityFrame extends JFrame {
         searchPosts(true);
     }
 
-    /**
-     * 게시글 목록을 검색/필터링한 뒤 테이블을 다시 그립니다.
-     * @param resetPage true면 1페이지로 이동, false면 현재 페이지를 유지(가능한 범위로 보정)
-     */
     public void searchPosts(boolean resetPage) {
         if (searchField == null) {
             filteredPosts.clear();
@@ -365,7 +345,6 @@ public class CommunityFrame extends JFrame {
         if (resetPage) {
             currentPage = 1;
         } else {
-            // 현재 페이지 유지 (삭제 등으로 총 페이지가 줄었을 때를 대비해 범위 보정)
             int totalPages = (int) Math.ceil((double) filteredPosts.size() / itemsPerPage);
             if (totalPages == 0) totalPages = 1;
             if (currentPage > totalPages) currentPage = totalPages;
@@ -374,7 +353,6 @@ public class CommunityFrame extends JFrame {
 
         renderTable();
     }
-
 
     private void renderTable() {
         tableModel.setRowCount(0);
@@ -390,6 +368,14 @@ public class CommunityFrame extends JFrame {
                 formatDate(post.date), 
                 post.likes
             });
+        }
+        
+        // ✅ 8칸을 꽉 채우지 못했을 때 빈 행 추가 (디자인 유지)
+        int currentRows = tableModel.getRowCount();
+        if (currentRows < itemsPerPage) {
+            for (int i = 0; i < (itemsPerPage - currentRows); i++) {
+                tableModel.addRow(new Object[]{"", "", "", ""});
+            }
         }
         
         updatePaginationPanel();
@@ -435,24 +421,21 @@ public class CommunityFrame extends JFrame {
     }
 
     private String formatDate(String dateStr) {
-        LocalDate postDate = LocalDate.parse(dateStr);
-        LocalDate today = LocalDate.now();
-        long daysDiff = ChronoUnit.DAYS.between(postDate, today);
+        try {
+            LocalDate postDate = LocalDate.parse(dateStr);
+            LocalDate today = LocalDate.now();
+            long daysDiff = ChronoUnit.DAYS.between(postDate, today);
 
-        if (daysDiff == 0) return "오늘";
-        else if (daysDiff <= 30) return daysDiff + "일 전";
-        else if (postDate.getYear() == today.getYear()) 
-            return postDate.getMonthValue() + "월 " + postDate.getDayOfMonth() + "일";
-        else return postDate.getYear() + "." + postDate.getMonthValue() + "." + postDate.getDayOfMonth();
-    }
-
-    private Post findPostByTitle(String title) {
-        for (Post p : allPosts) {
-            if (p.title.equals(title)) return p;
+            if (daysDiff == 0) return "오늘";
+            else if (daysDiff <= 30) return daysDiff + "일 전";
+            else if (postDate.getYear() == today.getYear()) 
+                return postDate.getMonthValue() + "월 " + postDate.getDayOfMonth() + "일";
+            else return postDate.getYear() + "." + postDate.getMonthValue() + "." + postDate.getDayOfMonth();
+        } catch (Exception e) {
+            return dateStr;
         }
-        return null;
     }
-    
+
     private void showLogoutPopup() {
         JDialog dialog = new JDialog(this, "로그아웃", true);
         dialog.setUndecorated(true);
@@ -512,7 +495,7 @@ public class CommunityFrame extends JFrame {
         return btn;
     }
 
- // --- 데이터 클래스 ---
+    // --- 데이터 클래스 ---
     public static class Post {
         int no;
         String title;
@@ -522,10 +505,8 @@ public class CommunityFrame extends JFrame {
         int comments;
         String content;
 
-        // ✅ 기본 생성자 (new Post() 때문에 필요할 수 있음)
         public Post() { }
 
-        // ✅ 실제로 쓰는 생성자
         public Post(int n, String t, String w, String d, int l, int c, String content) {
             this.no = n;
             this.title = t;
@@ -536,7 +517,6 @@ public class CommunityFrame extends JFrame {
             this.content = content;
         }
     }
-
 
     class TitleWithCommentCount {
         String title; int commentCount;
@@ -576,10 +556,16 @@ public class CommunityFrame extends JFrame {
                 countLabel.setForeground(Color.GRAY);
             }
 
+            // 빈 행 처리
+            if (value instanceof String && ((String)value).isEmpty()) {
+                titleLabel.setText("");
+                countLabel.setText("");
+                return this;
+            }
+
             if (value instanceof TitleWithCommentCount) {
                 TitleWithCommentCount tc = (TitleWithCommentCount) value;
                 titleLabel.setText(tc.title);
-                
                 if (tc.commentCount > 0) {
                     countLabel.setText("[" + tc.commentCount + "]");
                 } else {
@@ -598,47 +584,17 @@ public class CommunityFrame extends JFrame {
                 boolean isSelected, boolean hasFocus, int row, int column) {
             JLabel c = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
             c.setFont(uiFont.deriveFont(14f)); 
+            
+            if (value == null || value.toString().isEmpty()) {
+                c.setIcon(null);
+                c.setText("");
+                return c;
+            }
+            
             c.setIcon(icon);
-            c.setText(value != null ? " " + value.toString() : "");
+            c.setText(" " + value.toString());
             c.setHorizontalAlignment(CENTER);
             return c;
-        }
-    }
-
-    private static class ModernScrollBarUI extends javax.swing.plaf.basic.BasicScrollBarUI {
-        @Override
-        protected void configureScrollBarColors() {
-            this.thumbColor = new Color(200, 200, 200);
-            this.trackColor = new Color(245, 245, 245);
-        }
-        
-        @Override
-        protected JButton createDecreaseButton(int orientation) { 
-            JButton btn = new JButton();
-            btn.setPreferredSize(new Dimension(0, 0));
-            return btn;
-        }
-        
-        @Override
-        protected JButton createIncreaseButton(int orientation) { 
-            JButton btn = new JButton();
-            btn.setPreferredSize(new Dimension(0, 0));
-            return btn;
-        }
-        
-        @Override
-        protected void paintThumb(Graphics g, JComponent c, Rectangle thumbBounds) {
-            if (!c.isEnabled()) return;
-            Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(thumbColor);
-            g2.fillRoundRect(thumbBounds.x, thumbBounds.y, thumbBounds.width, thumbBounds.height, 8, 8);
-        }
-        
-        @Override
-        protected void paintTrack(Graphics g, JComponent c, Rectangle trackBounds) {
-            g.setColor(trackColor);
-            g.fillRect(trackBounds.x, trackBounds.y, trackBounds.width, trackBounds.height);
         }
     }
 
@@ -718,7 +674,7 @@ public class CommunityFrame extends JFrame {
                     if (text.equals("빈 강의실")) { new EmptyClassFrame(); dispose(); }
                     else if (text.equals("공간대여")) { new SpaceRentFrame(); dispose(); }
                     else if (text.equals("물품대여")) { new ItemListFrame(); dispose(); }
-                    else if (text.equals("간식행사") || text.equals("과행사")) { new EventListFrame(); dispose(); }
+                    else if (text.equals("과행사")) { new EventListFrame(); dispose(); }
                     else if (text.equals("마이페이지")) {  new MyPageFrame(); dispose();  }
                     else JOptionPane.showMessageDialog(null, "준비중입니다.");
                 }

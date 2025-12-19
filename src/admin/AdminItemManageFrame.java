@@ -2,6 +2,7 @@ package admin;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+import javax.swing.text.*;
 
 import java.awt.*;
 import java.io.InputStream;
@@ -10,6 +11,7 @@ import java.util.List;
 
 // 🔥 beehub 패키지에서 Item / ItemDAO 불러오기
 import beehub.Item;
+import beehub.ItemListFrame;
 import beehub.ItemDAO;
 
 public class AdminItemManageFrame extends JFrame {
@@ -24,7 +26,11 @@ public class AdminItemManageFrame extends JFrame {
         try {
             InputStream is = AdminItemManageFrame.class.getResourceAsStream("/fonts/DNFBitBitv2.ttf");
             if (is == null) uiFont = new Font("맑은 고딕", Font.PLAIN, 14);
-            else uiFont = Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(14f);
+            else {
+                Font base = Font.createFont(Font.TRUETYPE_FONT, is);
+                GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(base);
+                uiFont = base.deriveFont(14f);
+            }
         } catch (Exception e) { uiFont = new Font("맑은 고딕", Font.PLAIN, 14); }
     }
 
@@ -41,6 +47,71 @@ public class AdminItemManageFrame extends JFrame {
         initUI();
         refreshList();
         setVisible(true);
+    }
+    private void showSimplePopup(String title, String message) {
+        JDialog dialog = new JDialog(this, title, true);
+        dialog.setUndecorated(true);
+        dialog.setBackground(new Color(0,0,0,0));
+        dialog.setSize(400, 250);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(POPUP_BG);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+                g2.setColor(BROWN);
+                g2.setStroke(new BasicStroke(3));
+                g2.drawRoundRect(1, 1, getWidth()-3, getHeight()-3, 30, 30);
+            }
+        };
+        panel.setLayout(null);
+        dialog.add(panel);
+
+        JLabel titleLabel = new JLabel(title, SwingConstants.CENTER);
+        titleLabel.setFont(uiFont.deriveFont(18f));
+        titleLabel.setForeground(BROWN);
+        titleLabel.setBounds(20, 45, 360, 25);
+        panel.add(titleLabel);
+
+        // ✅ JLabel의 <html> 렌더링은 커스텀 폰트가 기본 폰트로 fallback 되는 경우가 있어
+        //    멀티라인은 JTextPane(비-HTML)로 렌더링하면 ‘삭제 불가’와 동일 폰트가 100% 적용됨
+        JTextPane msgPane = new JTextPane();
+        msgPane.setText(message);
+        msgPane.setEditable(false);
+        msgPane.setOpaque(false);
+        msgPane.setBorder(null);
+        msgPane.setHighlighter(null);
+        msgPane.setForeground(BROWN);
+        msgPane.setFont(uiFont.deriveFont(16f));
+        msgPane.setBounds(20, 75, 360, 60);
+
+        StyledDocument doc = msgPane.getStyledDocument();
+        SimpleAttributeSet attrs = new SimpleAttributeSet();
+        StyleConstants.setAlignment(attrs, StyleConstants.ALIGN_CENTER);
+        StyleConstants.setFontFamily(attrs, uiFont.getFamily());
+        StyleConstants.setFontSize(attrs, 16);
+        doc.setParagraphAttributes(0, doc.getLength(), attrs, false);
+
+        panel.add(msgPane);
+
+        JButton okBtn = new JButton("확인");
+        okBtn.setFont(uiFont.deriveFont(16f));
+        okBtn.setBackground(BROWN);
+        okBtn.setForeground(Color.WHITE);
+        okBtn.setFocusPainted(false);
+        okBtn.setBorder(new RoundedBorder(15, BROWN, 1));
+        okBtn.setBounds(135, 160, 130, 45);
+        okBtn.addActionListener(e -> dialog.dispose());
+        panel.add(okBtn);
+
+        dialog.setVisible(true);
+    }
+
+    private void showErrorPopup(String title, String message) {
+        showSimplePopup(title, message);
     }
 
     private void initUI() {
@@ -201,12 +272,9 @@ public class AdminItemManageFrame extends JFrame {
             boolean rented = ItemDAO.getInstance().isItemRented(item.getItemId());
 
             if (rented) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "현재 누군가 대여 중인 물품은 삭제할 수 없습니다.",
-                        "삭제 불가",
-                        JOptionPane.ERROR_MESSAGE
-                );
+                // ✅ 기본 JOptionPane 대신 커스텀 팝업으로
+            	showErrorPopup("삭제 불가", "현재 누군가 대여 중인 물품은\n삭제할 수 없습니다.");
+
                 return;
             }
 
@@ -214,11 +282,12 @@ public class AdminItemManageFrame extends JFrame {
             boolean ok = ItemDAO.getInstance().deleteItem(item.getItemId());
 
             if (ok) {
-                JOptionPane.showMessageDialog(this, "물품이 정상적으로 삭제되었습니다.");
+                showSimplePopup("삭제 완료", "물품이 정상적으로\n삭제되었습니다.");
                 refreshList();
             } else {
-                JOptionPane.showMessageDialog(this, "물품 삭제에 실패했습니다.");
+                showErrorPopup("삭제 실패", "물품 삭제에\n실패했습니다.");
             }
+
         });
         p.add(del);
 
@@ -309,8 +378,13 @@ public class AdminItemManageFrame extends JFrame {
     }
 
     private static class RoundedBorder implements Border {
-        private int r; private Color c;
+        private int r; private Color c; private int thickness;
         public RoundedBorder(int r, Color c) { this.r=r; this.c=c; }
+        public RoundedBorder(int radius, Color color, int thickness) {
+            this.r = radius;
+            this.c = color;
+            this.thickness = thickness;
+        }
         public Insets getBorderInsets(Component c) { return new Insets(r/2,r/2,r/2,r/2); }
         public boolean isBorderOpaque() { return false; }
         public void paintBorder(Component c, Graphics g, int x, int y, int w, int h) {

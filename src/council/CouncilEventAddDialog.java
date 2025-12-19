@@ -53,10 +53,12 @@ public class CouncilEventAddDialog extends JDialog {
     private JTextField secretCodeField;
     private JTextArea  descriptionArea;
     private JComboBox<String> typeCombo;   // SNACK / ACTIVITY
-    private JComboBox<String> feeCombo;    // 회비 조건
-    
-    // [추가] 학과 체크박스 리스트
+    private JComboBox<String> feeCombo;    // 회비 조건 
     private List<JCheckBox> majorCheckBoxes = new ArrayList<>();
+    private String originalEventDateText;
+    private String originalApplyStartText;
+    private String originalApplyEndText;
+
 
     private final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -297,6 +299,9 @@ public class CouncilEventAddDialog extends JDialog {
         if (eventData.date != null)        eventDateField.setText(eventData.date.format(FMT));
         if (eventData.applyStart != null)  applyStartField.setText(eventData.applyStart.format(FMT));
         if (eventData.applyEnd != null)    applyEndField.setText(eventData.applyEnd.format(FMT));
+        originalEventDateText  = eventDateField.getText().trim();
+        originalApplyStartText = applyStartField.getText().trim();
+        originalApplyEndText   = applyEndField.getText().trim();
         if (eventData.totalCount > 0)      totalCountField.setText(String.valueOf(eventData.totalCount));
         if (eventData.secretCode != null)  secretCodeField.setText(eventData.secretCode);
         if (eventData.description != null) descriptionArea.setText(eventData.description);
@@ -362,40 +367,57 @@ public class CouncilEventAddDialog extends JDialog {
             LocalDateTime applyEnd   = parseDateTime(applyEndField.getText().trim(),   "신청 종료");
             if (applyEnd == null) return; 
 
+         // ================================================================
+         // 🔥 현재 시간(현실)보다 이전인지 체크 (행사 일시, 신청 시작/종료)
+//             - 신규 등록: 항상 체크
+//             - 수정 모드: 날짜/시간을 "변경했을 때만" 체크 (날짜를 안 바꾸면 과거여도 허용)
+         // ================================================================
+         LocalDateTime now = LocalDateTime.now();
+         String nowStr = now.format(FMT); // 메시지 출력을 위한 현재 시간 포맷
 
-            // ================================================================
-            // 🔥 현재 시간(현실)보다 이전인지 체크 (행사 일시, 신청 시작/종료)
-            // ================================================================
-            LocalDateTime now = LocalDateTime.now();
-            String nowStr = now.format(FMT); // 메시지 출력을 위한 현재 시간 포맷
+         boolean isEdit = !isNew;
 
-            // 1. 행사 일시 체크
-            if (eventDate.isBefore(now)) {
-                showCustomMsgPopup(
-                        "날짜 오류", 
-                        "행사 일시(" + eventDate.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
-                );
-                return;
-            }
-            
-            // 2. 신청 시작 일시 체크
-            if (applyStart.isBefore(now)) {
+         String curEventDateText  = eventDateField.getText().trim();
+         String curApplyStartText = applyStartField.getText().trim();
+         String curApplyEndText   = applyEndField.getText().trim();
+
+         boolean eventDateChanged  = isEdit && originalEventDateText  != null && !curEventDateText.equals(originalEventDateText);
+         boolean applyStartChanged = isEdit && originalApplyStartText != null && !curApplyStartText.equals(originalApplyStartText);
+         boolean applyEndChanged   = isEdit && originalApplyEndText   != null && !curApplyEndText.equals(originalApplyEndText);
+
+         // 1. 행사 일시 체크 (신규 or 변경 시에만)
+         if (isNew || eventDateChanged) {
+             if (eventDate.isBefore(now)) {
                  showCustomMsgPopup(
-                        "날짜 오류",
-                        "신청 시작 일시(" + applyStart.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
+                         "날짜 오류",
+                         "행사 일시(" + eventDate.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
                  );
                  return;
-            }
-            
-            // 3. 신청 마감 일시 체크
-            if (applyEnd.isBefore(now)) {
+             }
+         }
+
+         // 2. 신청 시작 일시 체크 (신규 or 변경 시에만)
+         if (isNew || applyStartChanged) {
+             if (applyStart.isBefore(now)) {
                  showCustomMsgPopup(
-                        "날짜 오류",
-                        "신청 마감 일시(" + applyEnd.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
+                         "날짜 오류",
+                         "신청 시작 일시(" + applyStart.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
                  );
                  return;
-            }
-            // ================================================================
+             }
+         }
+
+         // 3. 신청 마감 일시 체크 (신규 or 변경 시에만)
+         if (isNew || applyEndChanged) {
+             if (applyEnd.isBefore(now)) {
+                 showCustomMsgPopup(
+                         "날짜 오류",
+                         "신청 마감 일시(" + applyEnd.format(FMT) + ")는\n 현재 시각(" + nowStr + ")보다 이후여야 합니다."
+                 );
+                 return;
+             }
+         }
+         // ================================================================
 
 
             // [기존 로직] 신청 종료 시간이 시작 시간보다 빠를 수 없음 체크

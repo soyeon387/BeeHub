@@ -8,7 +8,7 @@ import java.sql.SQLException;
 
 public class DBUtil {
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String URL = "jdbc:mysql://localhost:3306/beehub?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul";;
+    private static final String URL = "jdbc:mysql://localhost:3306/beehub?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul";
 
 
     private static final String USER = "root";     // 실제 DB 사용자 ID로 변경하세요!

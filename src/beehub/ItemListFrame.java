@@ -39,13 +39,12 @@ public class ItemListFrame extends JFrame {
     private JPanel itemListPanel;
     private JTextField searchField;
 
-
     public ItemListFrame() {
         setTitle("서울여대 꿀단지 - 물품대여");
         setSize(800, 600);
-        
+
         User currentUser = UserManager.getCurrentUser();
-        if(currentUser != null) userName = currentUser.getName();
+        if (currentUser != null) userName = currentUser.getName();
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -53,20 +52,19 @@ public class ItemListFrame extends JFrame {
         getContentPane().setBackground(BG_MAIN);
 
         initUI();
-        loadItems(); 
+        loadItems();
 
         setVisible(true);
     }
-    
- // 🔹 로그인한 사용자 ID를 같이 받고 싶을 때 쓰는 생성자
+
+    // 🔹 로그인한 사용자 ID를 같이 받고 싶을 때 쓰는 생성자
     public ItemListFrame(String userId) {
         this();             // 위 기본 생성자 먼저 실행
         this.userId = userId;
     }
 
-
     private void initUI() {
-        // --- 헤더 --- (생략)
+        // --- 헤더 ---
         JPanel headerPanel = new JPanel();
         headerPanel.setLayout(null);
         headerPanel.setBounds(0, 0, 800, 80);
@@ -78,16 +76,13 @@ public class ItemListFrame extends JFrame {
         logoLabel.setForeground(BROWN);
         logoLabel.setBounds(30, 20, 300, 40);
         headerPanel.add(logoLabel);
-        
-        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR)); // 1. 마우스 올리면 손가락 모양으로 변경
-        logoLabel.addMouseListener(new MouseAdapter() {      // 2. 마우스 기능 추가
+
+        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoLabel.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                // 현재 창 닫기
-                dispose(); 
-                
-                // 메인 화면(MainFrame) 새로 열기
-                new MainFrame(); 
+                dispose();
+                new MainFrame();
             }
         });
 
@@ -106,7 +101,7 @@ public class ItemListFrame extends JFrame {
         userInfoPanel.add(userInfoText);
         headerPanel.add(userInfoPanel);
 
-        // --- 네비게이션 --- (생략)
+        // --- 네비게이션 ---
         JPanel navPanel = new JPanel();
         navPanel.setLayout(new GridLayout(1, 6));
         navPanel.setBounds(0, 80, 800, 50);
@@ -120,7 +115,7 @@ public class ItemListFrame extends JFrame {
             navPanel.add(menuBtn);
         }
 
-        // --- 콘텐츠 영역 --- (생략)
+        // --- 콘텐츠 영역 ---
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(null);
         contentPanel.setBounds(0, 130, 800, 470);
@@ -131,10 +126,10 @@ public class ItemListFrame extends JFrame {
         searchField.setFont(uiFont.deriveFont(16f));
         searchField.setBounds(200, 20, 350, 40);
         searchField.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(200, 200, 200), 2),
-            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                BorderFactory.createLineBorder(new Color(200, 200, 200), 2),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
         ));
-        searchField.addActionListener(e -> searchItems()); // 엔터키 리스너
+        searchField.addActionListener(e -> searchItems());
         contentPanel.add(searchField);
 
         JLabel searchIcon = new JLabel("🔍");
@@ -149,40 +144,37 @@ public class ItemListFrame extends JFrame {
         itemListPanel = new JPanel();
         itemListPanel.setLayout(null);
         itemListPanel.setBackground(BG_MAIN);
-        
+
         JScrollPane scrollPane = new JScrollPane(itemListPanel);
         scrollPane.setBounds(25, 80, 750, 370);
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
-        
+
         scrollPane.getVerticalScrollBar().setUI(new ModernScrollBarUI());
-        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0)); 
+        scrollPane.getVerticalScrollBar().setPreferredSize(new Dimension(8, 0));
 
         contentPanel.add(scrollPane);
     }
 
     private void loadItems() {
         itemListPanel.removeAll();
-        // ItemDAO 사용
         List<Item> items = ItemDAO.getInstance().getAllItems();
         int yPos = 10;
-        
+
         for (Item item : items) {
             addItemCard(item, yPos);
             yPos += 130;
         }
-        
+
         itemListPanel.setPreferredSize(new Dimension(730, yPos));
         itemListPanel.revalidate();
         itemListPanel.repaint();
     }
-    
-    
 
     private void searchItems() {
         String keyword = searchField.getText().trim();
         List<Item> allItems = ItemDAO.getInstance().getAllItems();
-        
+
         itemListPanel.removeAll();
         int yPos = 10;
         boolean found = false;
@@ -220,7 +212,7 @@ public class ItemListFrame extends JFrame {
         iconLabel.setBackground(new Color(245, 245, 245));
         iconLabel.setBorder(new RoundedBorder(10, new Color(220, 220, 220), 1));
         iconLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        
+
         boolean imgLoaded = false;
         if (item.getImagePath() != null && !item.getImagePath().isEmpty()) {
             try {
@@ -240,7 +232,7 @@ public class ItemListFrame extends JFrame {
                 }
             } catch (Exception e) {}
         }
-        
+
         if (!imgLoaded) {
             iconLabel.setText("📦");
             iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 40));
@@ -265,7 +257,7 @@ public class ItemListFrame extends JFrame {
         nameLabel.setForeground(Color.BLACK);
         nameLabel.setBounds(110, 50, 300, 40);
         card.add(nameLabel);
-        
+
         JLabel stockLabel = new JLabel("재고: " + stock);
         stockLabel.setFont(uiFont.deriveFont(14f));
         stockLabel.setForeground(Color.GRAY);
@@ -275,16 +267,12 @@ public class ItemListFrame extends JFrame {
         card.setCursor(new Cursor(Cursor.HAND_CURSOR));
         card.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
-                // ✅ 선택된 아이템 + 로그인한 유저 ID를 같이 넘김
                 new ItemDetailFrame(item, userId).setVisible(true);
-                // 굳이 리스트를 닫고 싶지 않으면 dispose() 는 빼도 됨
                 dispose();
             }
-            
             public void mouseEntered(MouseEvent e) { card.setBackground(new Color(250, 250, 250)); }
             public void mouseExited(MouseEvent e) { card.setBackground(Color.WHITE); }
         });
-
 
         itemListPanel.add(card);
     }
@@ -315,7 +303,14 @@ public class ItemListFrame extends JFrame {
         }
         return btn;
     }
-    // ... (showSimplePopup, showLogoutPopup, ModernScrollBarUI, RoundedBorder 등은 생략) ...
+
+    // ===============================
+    // ✅ 기본 JOptionPane 스타일 대신 커스텀 팝업 사용용 메서드 추가
+    // ===============================
+    private void showErrorPopup(String title, String message) {
+        // 현재 프로젝트 팝업 스타일 유지하면서 에러도 동일하게
+        showSimplePopup(title, message);
+    }
 
     private void showSimplePopup(String title, String message) {
         JDialog dialog = new JDialog(this, title, true);
@@ -339,10 +334,19 @@ public class ItemListFrame extends JFrame {
         panel.setLayout(null);
         dialog.add(panel);
 
-        JLabel msgLabel = new JLabel(message, SwingConstants.CENTER);
+        JLabel titleLabel = new JLabel(title, SwingConstants.CENTER);
+        titleLabel.setFont(uiFont.deriveFont(18f));
+        titleLabel.setForeground(BROWN);
+        titleLabel.setBounds(20, 45, 360, 25);
+        panel.add(titleLabel);
+
+        JLabel msgLabel = new JLabel(
+                "<html><div style='text-align:center;'>" + message.replace("\n","<br>") + "</div></html>",
+                SwingConstants.CENTER
+        );
         msgLabel.setFont(uiFont.deriveFont(16f));
         msgLabel.setForeground(BROWN);
-        msgLabel.setBounds(20, 80, 360, 30);
+        msgLabel.setBounds(20, 75, 360, 60);
         panel.add(msgLabel);
 
         JButton okBtn = new JButton("확인");
@@ -357,14 +361,14 @@ public class ItemListFrame extends JFrame {
 
         dialog.setVisible(true);
     }
-    
+
     private void showLogoutPopup() {
         JDialog dialog = new JDialog(this, "로그아웃", true);
         dialog.setUndecorated(true);
         dialog.setBackground(new Color(0,0,0,0));
         dialog.setSize(400, 250);
         dialog.setLocationRelativeTo(this);
-        
+
         JPanel panel = new JPanel() {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
@@ -378,29 +382,33 @@ public class ItemListFrame extends JFrame {
         };
         panel.setLayout(null);
         dialog.add(panel);
-        
+
         JLabel l = new JLabel("로그아웃 하시겠습니까?", SwingConstants.CENTER);
         l.setFont(uiFont.deriveFont(18f));
         l.setForeground(BROWN);
         l.setBounds(20, 70, 360, 30);
         panel.add(l);
-        
+
         JButton yes = new JButton("네");
         yes.setFont(uiFont);
         yes.setBounds(60, 150, 120, 45);
         yes.setBackground(BROWN);
         yes.setForeground(Color.WHITE);
+        yes.setBorder(new RoundedBorder(15, BROWN, 1));
+        yes.setFocusPainted(false);
         yes.addActionListener(e -> { dialog.dispose(); new LoginFrame(); dispose(); });
         panel.add(yes);
-        
+
         JButton no = new JButton("아니오");
         no.setFont(uiFont);
         no.setBounds(220, 150, 120, 45);
         no.setBackground(BROWN);
         no.setForeground(Color.WHITE);
+        no.setBorder(new RoundedBorder(15, BROWN, 1));
+        no.setFocusPainted(false);
         no.addActionListener(e -> dialog.dispose());
         panel.add(no);
-        
+
         dialog.setVisible(true);
     }
 
@@ -447,7 +455,7 @@ public class ItemListFrame extends JFrame {
             g2.drawRoundRect(x, y, w - 1, h - 1, radius, radius);
         }
     }
-    
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(ItemListFrame::new);
     }

@@ -290,33 +290,6 @@ public class MyPageFrame extends JFrame {
             e.printStackTrace();
         }
     }
-    // 더미 데이터 생성
-    /*private void initDummyData() {
-        LocalDate today = LocalDate.of(2025, 12, 1);
-
-        dummyPosts = new ArrayList<>();
-        dummyPosts.add(new MyPagePost(1, "커뮤니티 기능 완성! (내 글)", userNickname, today.toString(), 15, 5, "완성해서 너무 기뻐요!"));
-        dummyPosts.add(new MyPagePost(2, "Spring 강의 자료 요청해요", userNickname, today.minusDays(2).toString(), 8, 3, "혹시 자료 공유 가능하신 분?"));
-        dummyPosts.add(new MyPagePost(3, "점심 메뉴 추천 받습니다", "다른학생1", today.minusDays(5).toString(), 20, 10, "오늘 뭐 먹지..."));
-        dummyPosts.add(new MyPagePost(4, "시험 기간 힘내세요!", "다른학생2", today.minusDays(10).toString(), 50, 2, "모두 A+ 받기를 기원합니다."));
-
-        dummyRentals = new ArrayList<>();
-        dummyRentals.add(new RentalItem("노트북 3", "2025-12-04", false));
-        dummyRentals.add(new RentalItem("보조배터리 5", "2025-11-28", false));
-        dummyRentals.add(new RentalItem("빔 프로젝터", "2025-12-10", false));
-        dummyRentals.add(new RentalItem("무선 마우스", "2025-11-20", true));
-        dummyRentals.add(new RentalItem("삼각대", "2025-10-01", true));
-
-        dummySpaceRentals = new ArrayList<>();
-        dummySpaceRentals.add(new SpaceRentalItem(1, "세미나실 1", "2025-12-05", "14:00", "16:00", 8, ReservationStatus.CANCELLABLE));
-        dummySpaceRentals.add(new SpaceRentalItem(2, "실습실 F", "2025-11-25", "18:00", "20:00", 12, ReservationStatus.COMPLETED));
-
-        dummyEvents = new ArrayList<>();
-        dummyEvents.add(new EventParticipationItem("SW 멘토링 특강", "2025-12-10", "15:00", false, ReservationStatus.CANCELLABLE));
-        dummyEvents.add(new EventParticipationItem("개강총회", "2025-09-01", "18:00", false, ReservationStatus.COMPLETED));
-        dummyEvents.add(new EventParticipationItem("총학생회 간식 배부", "2025-12-05", "12:00", true, ReservationStatus.COMPLETED));
-        dummyEvents.add(new EventParticipationItem("캡스톤 디자인 발표회", "2025-12-20", "13:00", false, ReservationStatus.USER_CANCELLED));
-    }*/
 
     private String getRank(int point) {
         if (point >= 200) return "여왕벌";
@@ -1260,31 +1233,32 @@ public class MyPageFrame extends JFrame {
         return panel;
     }
     
- // 🔹 게시글 상세 화면 열기 (Helper 메서드)
     private void openPostDetail(int postId) {
         String sql = "SELECT * FROM community_post WHERE post_id = ?";
-        
+
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-             
+
             pstmt.setInt(1, postId);
-            
+
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    // 1. DB 데이터를 CommunityFrame.Post 객체로 변환
                     CommunityFrame.Post post = new CommunityFrame.Post();
                     post.no = rs.getInt("post_id");
                     post.title = rs.getString("title");
                     post.content = rs.getString("content");
-                    post.writer = rs.getString("writer_nickname"); // 닉네임 사용
+                    post.writer = rs.getString("writer_nickname");
                     post.likes = rs.getInt("like_count");
                     post.comments = rs.getInt("comment_count");
                     post.date = rs.getTimestamp("created_at").toString();
-                    
-                    // 2. 상세 화면 띄우기
-                    // parentFrame은 null로 넘깁니다. (마이페이지에서 열었으므로 목록 갱신 연동은 안 됨)
-                    // 하지만 상세 내용 확인 및 댓글 달기 등은 정상 작동합니다.
-                    new CommunityDetailFrame(post, heartIcon, userNickname, null);
+
+                    CommunityDetailFrame detail =
+                            new CommunityDetailFrame(post, heartIcon, userNickname, null);
+
+                    // (생성자에서 setVisible(true) 안 하면)
+                    // detail.setVisible(true);
+
+                    this.dispose(); // ✅ 여기 한 줄이 “창 추가 생성” 문제를 해결
                 } else {
                     showCustomAlertPopup("알림", "삭제되었거나 존재하지 않는 게시글입니다.");
                 }
@@ -1294,6 +1268,7 @@ public class MyPageFrame extends JFrame {
             showCustomAlertPopup("오류", "게시글 정보를 불러오지 못했습니다.");
         }
     }
+
 
     // ===================== 물품 대여 기록 =====================
 

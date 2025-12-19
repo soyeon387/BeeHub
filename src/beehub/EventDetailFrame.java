@@ -71,13 +71,6 @@ public class EventDetailFrame extends JFrame {
     }
 
     private void initUI() {
-    	System.out.println("[DEBUG] " + eventData.title
-    	        + " type=" + eventData.eventType
-    	        + " dbStatus=" + eventData.status
-    	        + " date=" + eventData.date
-    	        + " applyStart=" + eventData.applyStart
-    	        + " applyEnd=" + eventData.applyEnd);
-
         // ===== 헤더 =====
         JPanel headerPanel = new JPanel(null);
         headerPanel.setBounds(0, 0, 800, 80);
@@ -302,13 +295,11 @@ public class EventDetailFrame extends JFrame {
         String schoolYn = user.getIsFeePaid(); // is_fee_paid
         String deptYn   = user.getDeptFeeYn(); // dept_fee_yn
 
-        System.out.println("DEBUG feeType=" + fee +
-                ", schoolYn=" + schoolYn + ", deptYn=" + deptYn);
-
         if (fee == FeeType.SCHOOL) {
             if (!"Y".equalsIgnoreCase(schoolYn)) {
                 showSimplePopup("신청 불가",
-                        "이 행사는 '학교 학생회비 납부자'만 신청할 수 있습니다.");
+                        "이 행사는 '학교 학생회비 납부자'만 "
+                        + "\n신청할 수 있습니다.");
                 return false;
             }
             return true;
@@ -317,7 +308,8 @@ public class EventDetailFrame extends JFrame {
         if (fee == FeeType.DEPT) {
             if (!"Y".equalsIgnoreCase(deptYn)) {
                 showSimplePopup("신청 불가",
-                        "이 행사는 과 학생회비 납부자만 신청할 수 있습니다.");
+                        "이 행사는 과 학생회비 납부자만"
+                        + "\n신청할 수 있습니다.");
                 return false;
             }
             return true;
@@ -327,7 +319,6 @@ public class EventDetailFrame extends JFrame {
     }
 
     // 🔹 행사 시간이 지났으면 종료
- // ✅ 상세화면 상태 계산: event_date(09:00)로 종료시키지 말고 apply_end(18:00) 기준
     private String computeEventStatus(EventData e) {
         if (e == null) return "삭제";
         if ("삭제".equals(e.status)) return "삭제";
@@ -426,9 +417,27 @@ public class EventDetailFrame extends JFrame {
             field.addKeyListener(new KeyAdapter() {
                 @Override
                 public void keyTyped(KeyEvent e) {
-                    if (field.getPassword().length >= 1) {
-                        e.consume();
-                        if (index < 3) codeFields[index + 1].requestFocus();
+                    char c = e.getKeyChar();
+                    // 숫자만 입력 가능하도록 제한 및 한 글자 초과 입력 방지
+                    if (!Character.isDigit(c) || field.getPassword().length >= 1) {
+                        e.consume(); 
+                    }
+                    
+                    // 입력 직후 다음 칸으로 자동 포커스 이동
+                    SwingUtilities.invokeLater(() -> {
+                        if (field.getPassword().length == 1 && index < 3) {
+                            codeFields[index + 1].requestFocus();
+                        }
+                    });
+                } @Override
+                public void keyPressed(KeyEvent e) {
+                    // 🔹 백스페이스(삭제) 처리
+                    if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                        if (field.getPassword().length == 0 && index > 0) {
+                            // 현재 칸이 비어있으면 이전 칸으로 이동 후 해당 칸 내용 삭제
+                            codeFields[index - 1].requestFocus();
+                            codeFields[index - 1].setText("");
+                        }
                     }
                 }
             });
