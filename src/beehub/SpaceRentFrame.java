@@ -1014,7 +1014,5 @@ public class SpaceRentFrame extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(SpaceRentFrame::new);
-    }
+    
 }

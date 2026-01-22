@@ -693,7 +693,5 @@ public class LoginFrame extends JFrame {
         return m;
     }
     
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(LoginFrame::new);
-    }
+   
 }

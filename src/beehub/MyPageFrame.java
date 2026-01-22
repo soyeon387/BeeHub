@@ -2116,7 +2116,4 @@ public class MyPageFrame extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(MyPageFrame::new);
     }
-}

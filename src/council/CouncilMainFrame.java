@@ -352,9 +352,6 @@ public class CouncilMainFrame extends JFrame {
         }
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() ->
-                new CouncilMainFrame("council_soft", "소프트웨어융합학과")
-        );
-    }
+    
+    
 }
