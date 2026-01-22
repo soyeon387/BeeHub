@@ -8,11 +8,11 @@ import java.sql.SQLException;
 
 public class DBUtil {
     private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String URL = "jdbc:mysql://localhost:3306/beehub?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul";
+    private static final String URL = "jdbc:mysql://localhost:3306/beehub?****";
 
 
-    private static final String USER = "root";     // 실제 DB 사용자 ID로 변경하세요!
-    private static final String PASS = "1234"; // 실제 DB 비밀번호로 변경하세요!
+    private static final String USER = "root";     
+    private static final String PASS = "****"; 
 
     // 1. Connection 객체 가져오기
     public static Connection getConnection() {
@@ -44,4 +44,5 @@ public class DBUtil {
     public static void close(Connection conn, PreparedStatement pstmt) {
         close(conn, pstmt, null);
     }
+
 }
